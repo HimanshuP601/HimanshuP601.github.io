@@ -1,0 +1,28 @@
+---
+layout: default
+---
+
+<div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>{{ page.title }}</h1>
+            {% if page.date %}
+            <p class="post-meta">Published: {{ page.date | date: "%B %-d, %Y" }}</p>
+            {% endif %}
+            {% if page.tags %}
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: {{ page.tags | join: ", " }}</p>
+            {% endif %}
+        </header>
+
+        <div class="post-content" id="post-content">
+            {{ content }}
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>

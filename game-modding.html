@@ -1,0 +1,22 @@
+---
+layout: default
+title: Game Modding
+---
+
+<div class="container">
+    <h1 style="margin-bottom: 0.5rem;">Game Modding</h1>
+    <p style="margin-bottom: 3rem;">Memory manipulation, structure reversing, and internal modification notes.</p>
+
+    <div class="grid">
+        {% for mod in site.game_modding %}
+            <div class="card">
+                <h3>{{ mod.title }}</h3>
+                <p style="margin-bottom: 1.5rem;">{{ mod.summary }}</p>
+                <div class="meta" style="margin-bottom: 1.5rem;">
+                    {% if mod.game %}Target: {{ mod.game }}{% endif %}
+                </div>
+                <a href="{{ mod.url | relative_url }}" class="view-btn">View Notes</a>
+            </div>
+        {% endfor %}
+    </div>
+</div>

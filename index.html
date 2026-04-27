@@ -1,0 +1,43 @@
+---
+layout: default
+title: Himanshu | Cybersecurity Portfolio
+---
+
+<div class="container">
+    <section class="hero" style="margin-bottom: 2rem;">
+        <h1><span class="glitch" data-text="Himanshu &quot;Kaaammuui&quot;">Himanshu "Kaaammuui"</span></h1>
+        <p class="subtitle">Focusing on system exploitation, game modding, and low-level vulnerability research. Documenting findings and building custom tooling for modern security challenges.</p>
+        <div class="social-links" style="margin-top: 2rem; display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+            <a href="https://github.com/HimanshuP601" target="_blank" class="social-btn">GitHub</a>
+            <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank" class="social-btn">LinkedIn</a>
+            <a href="https://pwn.college/hacker/HimanshuP601" target="_blank" class="social-btn" style="border-color: var(--accent-purple); color: var(--text-main);">pwn.college</a>
+            <a href="https://medium.com/@HimanshuP601" target="_blank" class="social-btn">Medium</a>
+            <a href="mailto:himanshuparate601@gmail.com" class="social-btn">Email</a>
+            <span class="social-btn" style="cursor: default;">Discord: himasnhu</span>
+        </div>
+    </section>
+
+    <section>
+        <h2>Latest Research & Projects</h2>
+        <div class="grid">
+            <div class="card">
+                <h3>Privilege Escalation Detection</h3>
+                <div class="meta">Status: Active | Language: C++</div>
+                <p>A Windows daemon utilizing API hooking to catch common elevation patterns locally on the endpoint.</p>
+                <a href="{{ '/projects/' | relative_url }}" class="view-btn">View Project</a>
+            </div>
+            <div class="card">
+                <h3>Buffer Overflow Mitigation Evasion</h3>
+                <div class="meta">CTF Writeup | Difficulty: Hard</div>
+                <p>Detailed analysis of bypassing NX and ASLR protections to achieve RCE in a vulnerable C binary.</p>
+                <a href="{{ '/writeups/' | relative_url }}" class="view-btn">Read Writeup</a>
+            </div>
+            <div class="card">
+                <h3>x86_64 Assembly Reference</h3>
+                <div class="meta">Study Notes & Mental Models</div>
+                <p>Comprehensive breakdown of System V AMD64 ABI calling conventions and common instruction flows.</p>
+                <a href="{{ '/notes/' | relative_url }}" class="view-btn">View Note</a>
+            </div>
+        </div>
+    </section>
+</div>

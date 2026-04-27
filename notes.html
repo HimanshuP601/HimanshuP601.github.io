@@ -1,0 +1,22 @@
+---
+layout: default
+title: Research Notes
+---
+
+<div class="container">
+    <h1 style="margin-bottom: 0.5rem;">Study Notes & Mental Models</h1>
+    <p style="margin-bottom: 3rem;">A digital repository of study notes, concepts, and low-level system references.</p>
+
+    <div class="grid">
+        {% for note in site.notes %}
+            <div class="card">
+                <h3>{{ note.title }}</h3>
+                <p style="margin-bottom: 1.5rem;">{{ note.summary }}</p>
+                <div class="meta" style="margin-bottom: 1.5rem;">
+                    {% if note.date %}Added: {{ note.date | date: "%B %d, %Y" }}{% endif %}
+                </div>
+                <a href="{{ note.url | relative_url }}" class="view-btn">Open Note</a>
+            </div>
+        {% endfor %}
+    </div>
+</div>

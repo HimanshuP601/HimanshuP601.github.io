@@ -1,0 +1,22 @@
+---
+layout: default
+title: CTF Writeups
+---
+
+<div class="container">
+    <h1 style="margin-bottom: 0.5rem;">Capture the Flag Walkthroughs</h1>
+    <p style="margin-bottom: 3rem;">Detailed technical walkthroughs focusing on binary exploitation and reverse engineering.</p>
+
+    <div class="grid">
+        {% for writeup in site.writeups %}
+            <div class="card">
+                <h3>{{ writeup.title }}</h3>
+                <div class="meta">
+                    Platform: {{ writeup.platform }} | Difficulty: {{ writeup.difficulty }}
+                </div>
+                <p style="margin-top: 1rem; margin-bottom: 1.5rem;">{{ writeup.summary }}</p>
+                <a href="{{ writeup.url | relative_url }}" class="view-btn">Read More</a>
+            </div>
+        {% endfor %}
+    </div>
+</div>

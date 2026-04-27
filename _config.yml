@@ -1,0 +1,27 @@
+title: "KAAAMMUUI"
+description: "A digital garden for System Exploitation & Reverse Engineering."
+author: "Himanshu Kaaammuui"
+
+# The URL of your site (useful for GitHub Pages)
+url: ""
+baseurl: ""
+
+# Build settings
+markdown: kramdown
+permalink: /:categories/:year/:month/:day/:title/
+
+# Collections
+collections:
+  projects:
+    output: true
+    permalink: /projects/:name/
+  writeups:
+    output: true
+    permalink: /writeups/:name/
+  notes:
+    output: true
+    permalink: /notes/:name/
+  game_modding:
+    output: true
+    permalink: /game-modding/:name/
+

@@ -1,0 +1,24 @@
+---
+layout: default
+title: Projects Directory
+---
+
+<div class="container">
+    <h1 style="margin-bottom: 0.5rem;">Projects & Research Tools</h1>
+    <p style="margin-bottom: 3rem;">Custom security tools and exploitation demonstrations developed for research purposes.</p>
+
+    <div class="grid">
+        {% for project in site.projects %}
+            <div class="card">
+                <h3>{{ project.title }}</h3>
+                <p>{{ project.summary }}</p>
+                <div class="meta" style="margin-bottom: 1.5rem;">
+                    {% if project.tags %}
+                        Tags: {{ project.tags | join: ", " }}
+                    {% endif %}
+                </div>
+                <a href="{{ project.url | relative_url }}" class="view-btn">View Source</a>
+            </div>
+        {% endfor %}
+    </div>
+</div>
