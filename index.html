@@ -18,26 +18,24 @@ title: Himanshu | Cybersecurity Portfolio
     </section>
 
     <section>
-        <h2>Latest Research & Projects</h2>
+        <h2>Latest Research & Writeups</h2>
         <div class="grid">
+            {% assign latest = site.writeups | sort: 'date' | reverse | slice: 0, 3 %}
+            {% for writeup in latest %}
             <div class="card">
-                <h3>Privilege Escalation Detection</h3>
-                <div class="meta">Status: Active | Language: C++</div>
-                <p>A Windows daemon utilizing API hooking to catch common elevation patterns locally on the endpoint.</p>
-                <a href="{{ '/projects/' | relative_url }}" class="view-btn">View Project</a>
+                <h3>{{ writeup.title }}</h3>
+                <div class="meta" style="font-size: 0.8rem;">Date: {{ writeup.date | date: "%b %d, %Y" }} | {{ writeup.parent_group }}</div>
+                <p>{{ writeup.summary | truncate: 120 }}</p>
+                <a href="{{ writeup.url | relative_url }}" class="view-btn">Read Writeup</a>
             </div>
-            <div class="card">
-                <h3>Buffer Overflow Mitigation Evasion</h3>
-                <div class="meta">CTF Writeup | Difficulty: Hard</div>
-                <p>Detailed analysis of bypassing NX and ASLR protections to achieve RCE in a vulnerable C binary.</p>
-                <a href="{{ '/writeups/' | relative_url }}" class="view-btn">Read Writeup</a>
-            </div>
-            <div class="card">
-                <h3>x86_64 Assembly Reference</h3>
-                <div class="meta">Study Notes & Mental Models</div>
-                <p>Comprehensive breakdown of System V AMD64 ABI calling conventions and common instruction flows.</p>
-                <a href="{{ '/notes/' | relative_url }}" class="view-btn">View Note</a>
-            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section style="margin-top: 4rem;">
+        <h2><span style="color: var(--accent-purple); font-family: var(--font-mono);">[ SYNC ]</span> External Publications</h2>
+        <div id="medium-feed" class="terminal-widget">
+            <p style="color: var(--text-muted); font-family: var(--font-mono);">> initializing connection to medium.com...</p>
         </div>
     </section>
 </div>

@@ -56,4 +56,31 @@ document.addEventListener("DOMContentLoaded", function() {
             });
         }
     }
+
+    // 3. Dynamic Medium RSS Feed
+    const mediumContainer = document.getElementById("medium-feed");
+    if (mediumContainer) {
+        fetch("https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fmedium.com%2Ffeed%2F%40HimanshuP601")
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === "ok" && data.items.length > 0) {
+                    mediumContainer.innerHTML = "";
+                    data.items.slice(0, 4).forEach(item => {
+                        const date = new Date(item.pubDate).toLocaleDateString();
+                        const postHtml = `
+                            <div class="terminal-post">
+                                <div class="pub-date">[PUBLIC_RELEASE: ${date}]</div>
+                                <a href="${item.link}" target="_blank">${item.title}</a>
+                            </div>
+                        `;
+                        mediumContainer.innerHTML += postHtml;
+                    });
+                } else {
+                    mediumContainer.innerHTML = "<p style='color: red;'>[!] connection_refused: no posts found</p>";
+                }
+            })
+            .catch(err => {
+                mediumContainer.innerHTML = "<p style='color: red;'>[!] err_timeout: unable to resolve feed</p>";
+            });
+    }
 });
