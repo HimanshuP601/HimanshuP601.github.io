@@ -4,7 +4,9 @@ title: Buffer Overflow in 'SecureLogin' Binary
 summary: A detailed look at bypassing NX and ASLR to achieve remote code execution.
 platform: HackTheBox
 difficulty: Hard
-tags: [Pwn, ROP, Buffer Overflow]
+major_type: "Platform"
+parent_group: "pwn.college"
+sub_module: "Program Misuse"
 date: 2026-04-20
 ---
 

