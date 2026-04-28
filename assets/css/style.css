@@ -199,17 +199,12 @@ main {
   flex-grow: 1;
 }
 
-.hero {
-  text-align: center;
-  padding: 6rem 0;
-}
-
-.hero h1 {
+.profile-header h1 {
   color: #fff;
   margin-bottom: 1rem;
 }
 
-.hero p.subtitle {
+.profile-header p.subtitle {
   font-size: 1.25rem;
   max-width: 600px;
   margin: 0 auto 2rem;
