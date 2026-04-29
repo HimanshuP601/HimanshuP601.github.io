@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>x86_64 Assembly Quick Reference</title>
+    <title>Catch Me If You Bot</title>
     <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
     
     <!-- Open Graph Metadata -->
-    <meta property="og:title" content="x86_64 Assembly Quick Reference" />
+    <meta property="og:title" content="Catch Me If You Bot" />
     <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
@@ -94,8 +94,8 @@ int main() {
                 <a href="/" >Home</a>
                 <a href="/projects/" >Projects</a>
                 <a href="/game-modding/" >Game Modding</a>
-                <a href="/writeups/" >CTF Writeups</a>
-                <a href="/notes/" class="active">Notes</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
             </nav>
         </div>
     </header>
@@ -104,40 +104,52 @@ int main() {
         <div class="container page-layout">
     <article class="post">
         <header class="post-header">
-            <h1>x86_64 Assembly Quick Reference</h1>
+            <h1>Catch Me If You Bot</h1>
             
-            <p class="post-meta">Published: April 24, 2026</p>
+            <p class="post-meta">Published: April 29, 2026</p>
             
             
-            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: Assembly, Reverse Engineering</p>
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
             
         </header>
 
         <div class="post-content" id="post-content">
-            <h2 id="calling-convention-system-v-amd64-abi">Calling Convention (System V AMD64 ABI)</h2>
+            <p><strong>Flag:</strong> <code class="language-plaintext highlighter-rouge">HQX{48f0b6ae4c34f08ec8da92bf818378a3}</code></p>
 
-<p>When reversing linux binaries, it’s critical to know how arguments are passed to functions.</p>
+<h2 id="approach-step-by-step">Approach (Step by Step)</h2>
 
-<ul>
-  <li><strong>Arg 1:</strong> <code class="language-plaintext highlighter-rouge">rdi</code></li>
-  <li><strong>Arg 2:</strong> <code class="language-plaintext highlighter-rouge">rsi</code></li>
-  <li><strong>Arg 3:</strong> <code class="language-plaintext highlighter-rouge">rdx</code></li>
-  <li><strong>Arg 4:</strong> <code class="language-plaintext highlighter-rouge">rcx</code></li>
-  <li><strong>Arg 5:</strong> <code class="language-plaintext highlighter-rouge">r8</code></li>
-  <li><strong>Arg 6:</strong> <code class="language-plaintext highlighter-rouge">r9</code></li>
-  <li><strong>Return Value:</strong> <code class="language-plaintext highlighter-rouge">rax</code></li>
-</ul>
+<ol>
+  <li>The provided website included a timer of 60 seconds and nothing else.</li>
+  <li>In order to gain more information I used <code class="language-plaintext highlighter-rouge">robots.txt</code> and it fortunately resulted in some information (<code class="language-plaintext highlighter-rouge">botname = HQBOT</code>).</li>
+  <li>It clearly hints that there exists a special user-agent <code class="language-plaintext highlighter-rouge">HQBOT</code>.</li>
+  <li>But where to use this information? In search of more information I checked <code class="language-plaintext highlighter-rouge">sitemap.xml</code> which resulted in some more hidden paths (like index, blog, portfolio, and developer):</li>
+</ol>
 
-<h2 id="common-instructions">Common Instructions</h2>
+<h3 id="hidden-paths">Hidden Paths:</h3>
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">&lt;?xml version="1.0" encoding="utf-8" standalone="yes" ?&gt;</span>
+<span class="nt">&lt;urlset</span> <span class="na">xmlns=</span><span class="s">"http://www.sitemaps.org/schemas/sitemap/0.9"</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;url&gt;&lt;loc&gt;</span>http://challenge.tcshackquest.com:23791/<span class="nt">&lt;/loc&gt;&lt;/url&gt;</span>
+    <span class="nt">&lt;url&gt;&lt;loc&gt;</span>http://challenge.tcshackquest.com:23791/index.html<span class="nt">&lt;/loc&gt;&lt;/url&gt;</span>
+    <span class="nt">&lt;url&gt;&lt;loc&gt;</span>http://challenge.tcshackquest.com:23791/blog.html<span class="nt">&lt;/loc&gt;&lt;/url&gt;</span>
+    <span class="nt">&lt;url&gt;&lt;loc&gt;</span>http://challenge.tcshackquest.com:23791/devl0per-2754d622cf.html<span class="nt">&lt;/loc&gt;&lt;/url&gt;</span>
+    <span class="nt">&lt;url&gt;&lt;loc&gt;</span>http://challenge.tcshackquest.com:23791/portfolio-details.html<span class="nt">&lt;/loc&gt;&lt;/url&gt;</span>
+    <span class="nt">&lt;url&gt;&lt;loc&gt;</span>http://challenge.tcshackquest.com:23791/blog-single.html<span class="nt">&lt;/loc&gt;&lt;/url&gt;</span>
+<span class="nt">&lt;/urlset&gt;</span>
+</code></pre></div></div>
 
-<ul>
-  <li><code class="language-plaintext highlighter-rouge">mov rax, rbx</code>: Copy value from rbx into rax.</li>
-  <li><code class="language-plaintext highlighter-rouge">lea rax, [rbx+8]</code>: Load effective address (calculate rbx+8 and put it in rax, often used for math too).</li>
-  <li><code class="language-plaintext highlighter-rouge">test rax, rax</code>: Logical AND, often used right before a <code class="language-plaintext highlighter-rouge">jz</code> or <code class="language-plaintext highlighter-rouge">jnz</code> to check if a value is zero.</li>
-  <li><code class="language-plaintext highlighter-rouge">xor rax, rax</code>: Fastest way to zero out a register.</li>
-</ul>
+<ol>
+  <li>Among all paths, the developer path had a random integer which hinted that at each attempt this specific path integer changes. (e.g., <code class="language-plaintext highlighter-rouge">http://challenge.tcshackquest.com:23791/devl0per-2754d622cf.html</code>)</li>
+  <li>Every other path worked with the default user-agent except the special developer one. Hence, after using the special user-agent <code class="language-plaintext highlighter-rouge">HQBOT</code>, it succeeded, but even after that it seemed to redirect to a different path (<code class="language-plaintext highlighter-rouge">/dev-website</code>).</li>
+  <li>Requesting each path was difficult due to the 60-second time limit; exceeding the time resulted in rejection of requests.</li>
+  <li>Hence to solve this challenge, I used <code class="language-plaintext highlighter-rouge">curl</code> with the special <code class="language-plaintext highlighter-rouge">-H</code> option to set the <code class="language-plaintext highlighter-rouge">User-Agent</code>.</li>
+  <li>After several tries I managed to make a successful request to <code class="language-plaintext highlighter-rouge">/dev-website</code> and got the flag.</li>
+</ol>
 
-<p>Always verify the stack alignment before making function calls in your shellcode!</p>
+<h3 id="output">Output:</h3>
+
+<p><img src="/assets/images/writeups/tcs-hackquest/08-catch-me-bot-flag-1.png" alt="Bot Flag Capture 1" /></p>
+
+<p><img src="/assets/images/writeups/tcs-hackquest/09-catch-me-bot-flag-2.png" alt="Bot Flag Capture 2" /></p>
 
         </div>
     </article>
@@ -169,7 +181,7 @@ int main() {
                 </a>
             </div>
 
-            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+            <p>&copy; 2026 Himanshu Kaaammuui. Hosted natively on GitHub Pages.</p>
         </div>
     </footer>
     <script src="/assets/js/main.js"></script>

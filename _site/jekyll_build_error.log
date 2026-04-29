@@ -1,0 +1,45 @@
+Configuration file: /home/himanshu/Desktop/Github/Website 2/_config.yml
+            Source: /home/himanshu/Desktop/Github/Website 2
+       Destination: /home/himanshu/Desktop/Github/Website 2/_site
+ Incremental build: disabled. Enable with --incremental
+      Generating... 
+[31m  Liquid Exception: Liquid syntax error (line 23): Tag '{%' was not properly terminated with regexp: /\%\}/ in /home/himanshu/Desktop/Github/Website 2/_writeups/tcs-hackquest-s10-r1-noise.md[0m
+[31m                    ------------------------------------------------[0m
+[31m      Jekyll 4.4.1   Please append `--trace` to the `build` command [0m
+[31m                     for any additional information or backtrace. [0m
+[31m                    ------------------------------------------------[0m
+/home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/liquid-4.0.4/lib/liquid/block_body.rb:132:in `raise_missing_tag_terminator': Liquid syntax error (line 23): Tag '{%' was not properly terminated with regexp: /\%\}/ (Liquid::SyntaxError)
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/liquid-4.0.4/lib/liquid/block_body.rb:24:in `parse'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/liquid-4.0.4/lib/liquid/document.rb:10:in `parse'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/liquid-4.0.4/lib/liquid/document.rb:5:in `parse'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/liquid-4.0.4/lib/liquid/template.rb:130:in `parse'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/liquid-4.0.4/lib/liquid/template.rb:114:in `parse'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/liquid_renderer/file.rb:13:in `block in parse'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/liquid_renderer/file.rb:70:in `measure_time'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/liquid_renderer/file.rb:12:in `parse'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/renderer.rb:124:in `render_liquid'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/renderer.rb:80:in `render_document'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/renderer.rb:63:in `run'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/site.rb:572:in `render_regenerated'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/site.rb:557:in `block (2 levels) in render_docs'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/site.rb:556:in `each'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/site.rb:556:in `block in render_docs'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/site.rb:555:in `each_value'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/site.rb:555:in `render_docs'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/site.rb:210:in `render'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/site.rb:80:in `process'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/command.rb:28:in `process_site'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/commands/build.rb:65:in `build'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/commands/build.rb:36:in `process'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/command.rb:91:in `block in process_with_graceful_fail'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/command.rb:91:in `each'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/command.rb:91:in `process_with_graceful_fail'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/lib/jekyll/commands/build.rb:18:in `block (2 levels) in init_with_program'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/mercenary-0.4.0/lib/mercenary/command.rb:221:in `block in execute'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/mercenary-0.4.0/lib/mercenary/command.rb:221:in `each'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/mercenary-0.4.0/lib/mercenary/command.rb:221:in `execute'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/mercenary-0.4.0/lib/mercenary/program.rb:44:in `go'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/mercenary-0.4.0/lib/mercenary.rb:21:in `program'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/gems/jekyll-4.4.1/exe/jekyll:15:in `<top (required)>'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/bin/jekyll:25:in `load'
+	from /home/himanshu/Desktop/Github/Website 2/vendor/bundle/ruby/3.3.0/bin/jekyll:25:in `<main>'

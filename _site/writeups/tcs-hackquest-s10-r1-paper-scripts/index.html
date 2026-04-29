@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>privilege-escalation-detector</title>
+    <title>Paper Scripts</title>
     <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
     
     <!-- Open Graph Metadata -->
-    <meta property="og:title" content="privilege-escalation-detector" />
+    <meta property="og:title" content="Paper Scripts" />
     <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
@@ -92,9 +92,9 @@ int main() {
             <a href="/" class="site-title">KAAAMMUUI</a>
             <nav>
                 <a href="/" >Home</a>
-                <a href="/projects/" class="active">Projects</a>
+                <a href="/projects/" >Projects</a>
                 <a href="/game-modding/" >Game Modding</a>
-                <a href="/writeups/" >CTF Writeups</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
                 <a href="/notes/" >Notes</a>
             </nav>
         </div>
@@ -104,36 +104,70 @@ int main() {
         <div class="container page-layout">
     <article class="post">
         <header class="post-header">
-            <h1>privilege-escalation-detector</h1>
+            <h1>Paper Scripts</h1>
             
-            <p class="post-meta">Published: April 27, 2026</p>
+            <p class="post-meta">Published: April 29, 2026</p>
             
             
-            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: C++, Windows, API Hooking</p>
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
             
         </header>
 
         <div class="post-content" id="post-content">
-            <h2 id="privilege-escalation-detection-system">Privilege Escalation Detection System</h2>
+            <p><strong>Flag:</strong> <code class="language-plaintext highlighter-rouge">HQX{2e05d5c636776f6dc52e158f266cfb0c}</code></p>
 
-<p>This tool monitors common escalation indicators on a Windows endpoint, including:</p>
+<h2 id="approach-step-by-step">Approach (Step by Step)</h2>
+
 <ol>
-  <li>Unauthorized Token Duplication</li>
-  <li>Suspicious process lineage</li>
-  <li>Registry run-key modification</li>
+  <li>The description hints the challenge is a forensic/steganography challenge.</li>
+  <li>After extracting the zip file, I got a <code class="language-plaintext highlighter-rouge">.pdf</code> file.</li>
+  <li>Just to get more information, I used <code class="language-plaintext highlighter-rouge">pdfid</code>:</li>
 </ol>
 
-<h3 id="implementation">Implementation</h3>
-
-<p>The core logic revolves around deep hooking of Win32 APIs like <code class="language-plaintext highlighter-rouge">CreateProcessWithTokenW</code> and implementing heuristic checks on the calling thread’s security descriptors.</p>
-
-<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Example pseudocode snippet</span>
-<span class="k">if</span> <span class="p">(</span><span class="n">CheckTokenMembership</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">AdministratorsGroup</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">bIsAdmin</span><span class="p">))</span> <span class="p">{</span>
-    <span class="n">LogSuspiciousActivity</span><span class="p">(</span><span class="s">"Process spawned with Admin token directly"</span><span class="p">);</span>
-<span class="p">}</span>
+<h3 id="output">Output:</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌──<span class="o">(</span>himanshu@Kaaammui<span class="o">)</span>-[~/Desktop/tcs/paper script]-<span class="o">(</span>13-12-2025 12:23:10<span class="o">)</span>
+└─<span class="nv">$ </span>pdfid 4F8aD5D762.pdf
+PDFiD 0.2.10 4F8aD5D762.pdf
+PDF Header: %PDF-1.7
+obj        32
+endobj     32
+stream     7
+endstream  7
+xref       1
+trailer    1
+startxref  1
+/Page      1
+/Encrypt   0
+/ObjStm    0
+/JS        1
+/JavaScript 2
+/AA        0
+/OpenAction 0
+/AcroForm  0
+/JBIG2Decode 0
+/RichMedia 0
+...
 </code></pre></div></div>
 
-<p>This project helped me understand the delicate intricacies of Windows Access Tokens.</p>
+<ol>
+  <li>Clearly, we can see a JavaScript block is embedded in the PDF, hence I used another tool <code class="language-plaintext highlighter-rouge">pdfinfo</code> with the <code class="language-plaintext highlighter-rouge">-js</code> option.</li>
+</ol>
+
+<h3 id="output-1">Output:</h3>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌──<span class="o">(</span>himanshu@Kaaammui<span class="o">)</span>-[~/Desktop/tcs/paper script]-<span class="o">(</span>13-12-2025 12:23:13<span class="o">)</span>
+└─<span class="nv">$ </span>pdfinfo <span class="nt">-js</span> 4F8aD5D762.pdf
+Name Dictionary <span class="s2">"9bfabf7e-40b0-4573-b6dc-1442aea2415f"</span>:
+var
+<span class="nv">_0x790b</span><span class="o">=[</span><span class="s1">'\x32\x38\x31\x35\x38\x38\x67\x6a\x48\x79\x61\x43'</span>,...]<span class="p">;</span>
+var <span class="nv">_0x407b</span><span class="o">=</span><span class="k">function</span><span class="o">(</span>_0x294226,_0x4a3243<span class="o">){</span>...<span class="o">}</span><span class="p">;</span>
+...
+var _0x870b <span class="o">=</span> <span class="s1">'\x48'</span>+<span class="s1">'\x51'</span>+<span class="s1">'\x58'</span>+<span class="s1">'\x7b'</span>+<span class="s1">'\x32'</span>+<span class="s1">'\x65'</span>+<span class="s1">'\x30'</span>+<span class="s1">'\x35'</span>+<span class="s1">'\x64'</span>+<span class="s1">'\x35'</span>+<span class="s1">'\x63'</span>+<span class="s1">'\x36'</span>+<span class="s1">'\x33'</span>+<span class="s1">'\x36'</span>+<span class="s1">'\x37'</span>+<span class="s1">'\x37'</span>+<span class="s1">'\x36'</span>+<span class="s1">'\x66'</span>+<span class="s1">'\x36'</span>+<span class="s1">'\x64'</span>+<span class="s1">'\x63'</span>+<span class="s1">'\x35'</span>+<span class="s1">'\x32'</span>+<span class="s1">'\x65'</span>+<span class="s1">'\x31'</span>+<span class="s1">'\x35'</span>+<span class="s1">'\x38'</span>+<span class="s1">'\x66'</span>+<span class="s1">'\x32'</span>+<span class="s1">'\x36'</span>+<span class="s1">'\x36'</span>+<span class="s1">'\x63'</span>+<span class="s1">'\x66'</span>+<span class="s1">'\x62'</span>+<span class="s1">'\x30'</span>+<span class="s1">'\x63'</span>+<span class="s1">'\x7d'</span><span class="p">;</span>
+console[<span class="s1">'\x6c'</span>+<span class="s1">'\x6f'</span>+<span class="s1">'\x67'</span><span class="o">](</span>_0x870b<span class="o">)</span><span class="p">;</span>
+</code></pre></div></div>
+
+<ol>
+  <li>The variable <code class="language-plaintext highlighter-rouge">_0x870b</code> contains a suspicious hex string. After concatenating and converting it into ASCII characters, I found the flag.</li>
+</ol>
 
         </div>
     </article>
@@ -165,7 +199,7 @@ int main() {
                 </a>
             </div>
 
-            <p>&copy; 2026 Himanshu. Hosted natively on GitHub Pages.</p>
+            <p>&copy; 2026 Himanshu Kaaammuui. Hosted natively on GitHub Pages.</p>
         </div>
     </footer>
     <script src="/assets/js/main.js"></script>

