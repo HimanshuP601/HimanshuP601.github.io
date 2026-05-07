@@ -55,4 +55,17 @@ var _0x870b = '\x48'+'\x51'+'\x58'+'\x7b'+'\x32'+'\x65'+'\x30'+'\x35'+'\x64'+'\x
 console['\x6c'+'\x6f'+'\x67'](_0x870b);
 ```
 
-5. The variable `_0x870b` contains a suspicious hex string. After concatenating and converting it into ASCII characters, I found the flag.
+5. The variable `_0x870b` contains a suspicious hex string. After concatenating and converting it into ASCII characters using Python, I found the flag.
+
+```python
+In [1]: hex_list = [
+   ...:     "48","51","58","7b","32","65","30","35","64","35","63","36",
+   ...:     "33","36","37","37","36","66","36","64","63","35","32","65",
+   ...:     "31","35","38","66","32","36","36","63","66","62","30","63","7d"
+   ...: ]
+   ...: 
+   ...: flag = "".join(chr(int(h, 16)) for h in hex_list)
+   ...: print(flag)
+   ...: 
+HQX{2e05d5c636776f6dc52e158f266cfb0c}
+```

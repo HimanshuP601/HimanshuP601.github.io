@@ -106,7 +106,7 @@ int main() {
         <header class="post-header">
             <h1>Noise</h1>
             
-            <p class="post-meta">Published: April 29, 2026</p>
+            <p class="post-meta">Published: May 7, 2026</p>
             
             
             <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
@@ -144,7 +144,15 @@ HQX{%coX#h}
 
 <p>(actual output was big, I just skipped some for better visibility)</p>
 
-<p>Later, used 10 instead of 6 to filter further.</p>
+<ol>
+  <li>To filter it down perfectly to just the flag, since I know the flag format typically contains a 32-character hex string, I increased the length to 32:</li>
+</ol>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌──<span class="o">(</span>himanshu@Kaaammui<span class="o">)</span>-[~/Desktop/tcs/noise]-<span class="o">(</span>13-12-2025 10:14:28<span class="o">)</span>
+└─<span class="nv">$ </span>strings a729Ea1b97.opt | <span class="nb">grep</span> <span class="nt">-E</span> <span class="s1">'HQX\{[^}]{32,}\}'</span>
+HQX<span class="o">{</span>543c40987f3de029de611d3649428016<span class="o">}</span> HQX<span class="o">{</span>
+</code></pre></div></div>
+
 
         </div>
     </article>

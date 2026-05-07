@@ -106,7 +106,7 @@ int main() {
         <header class="post-header">
             <h1>Catch Me If You Bot</h1>
             
-            <p class="post-meta">Published: April 29, 2026</p>
+            <p class="post-meta">Published: May 7, 2026</p>
             
             
             <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
@@ -141,9 +141,38 @@ int main() {
   <li>Among all paths, the developer path had a random integer which hinted that at each attempt this specific path integer changes. (e.g., <code class="language-plaintext highlighter-rouge">http://challenge.tcshackquest.com:23791/devl0per-2754d622cf.html</code>)</li>
   <li>Every other path worked with the default user-agent except the special developer one. Hence, after using the special user-agent <code class="language-plaintext highlighter-rouge">HQBOT</code>, it succeeded, but even after that it seemed to redirect to a different path (<code class="language-plaintext highlighter-rouge">/dev-website</code>).</li>
   <li>Requesting each path was difficult due to the 60-second time limit; exceeding the time resulted in rejection of requests.</li>
-  <li>Hence to solve this challenge, I used <code class="language-plaintext highlighter-rouge">curl</code> with the special <code class="language-plaintext highlighter-rouge">-H</code> option to set the <code class="language-plaintext highlighter-rouge">User-Agent</code>.</li>
-  <li>After several tries I managed to make a successful request to <code class="language-plaintext highlighter-rouge">/dev-website</code> and got the flag.</li>
+  <li>Hence to solve this challenge, I used <code class="language-plaintext highlighter-rouge">curl</code> with the special <code class="language-plaintext highlighter-rouge">-H</code> option to set the <code class="language-plaintext highlighter-rouge">User-Agent</code>. I had to fetch the sitemap to find the active developer URL (which changes rapidly), request it with the <code class="language-plaintext highlighter-rouge">HQBOT</code> agent, and quickly follow the redirect to the final page containing the flag.</li>
+  <li>Here is the trace of the successful sequence:</li>
 </ol>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Fetch sitemap to find the current active path</span>
+<span class="nv">$ </span>curl http://challenge.tcshackquest.com:23791/sitemap.xml                                       
+...
+  &lt;url&gt;&lt;loc&gt;http://challenge.tcshackquest.com:23791/devl0per-2754d622cf.html&lt;/loc&gt;&lt;/url&gt;
+...
+
+<span class="c"># Use HQBOT user-agent to access the restricted developer path</span>
+<span class="nv">$ </span>curl <span class="nt">-L</span> <span class="nt">-H</span> <span class="s2">"User-Agent: HQBOT"</span> http://challenge.tcshackquest.com:23791/devl0per-2754d622cf.html
+&lt;<span class="nb">head</span><span class="o">&gt;</span>
+  &lt;meta http-equiv<span class="o">=</span><span class="s2">"Refresh"</span> <span class="nv">content</span><span class="o">=</span><span class="s2">"0; URL=/dev-website/2754d622cf79d09d074b22c85db7a27c.html"</span> /&gt;
+&lt;/head&gt;
+
+<span class="c"># Follow the redirect to the final flag page</span>
+<span class="nv">$ </span>curl <span class="nt">-L</span> <span class="nt">-H</span> <span class="s2">"User-Agent: HQBOT"</span> http://challenge.tcshackquest.com:23791/dev-website/2754d622cf79d09d074b22c85db7a27c.html
+&lt;<span class="o">!</span>DOCTYPE html&gt;
+&lt;html <span class="nv">lang</span><span class="o">=</span><span class="s2">"en"</span> <span class="o">&gt;</span>
+&lt;<span class="nb">head</span><span class="o">&gt;</span>
+  &lt;title&gt;Agent 007 Flag&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div <span class="nv">class</span><span class="o">=</span><span class="s2">"wrapper"</span><span class="o">&gt;</span>
+    &lt;div <span class="nv">class</span><span class="o">=</span><span class="s2">"typing"</span><span class="o">&gt;</span>
+      You found the flag HQX<span class="o">{</span>48f0b6ae4c34f08ec8da92bf818378a3<span class="o">}</span><span class="nb">.</span>
+    &lt;/div&gt;
+&lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre></div></div>
 
 <h3 id="output">Output:</h3>
 

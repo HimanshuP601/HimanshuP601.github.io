@@ -37,4 +37,13 @@ HQX{%coX#h}
 
 (actual output was big, I just skipped some for better visibility)
 
-Later, used 10 instead of 6 to filter further.
+5. To filter it down perfectly to just the flag, since I know the flag format typically contains a 32-character hex string, I increased the length to 32:
+
+{% raw %}
+```bash
+┌──(himanshu@Kaaammui)-[~/Desktop/tcs/noise]-(13-12-2025 10:14:28)
+└─$ strings a729Ea1b97.opt | grep -E 'HQX\{[^}]{32,}\}'
+HQX{543c40987f3de029de611d3649428016} HQX{
+```
+{% endraw %}
+

@@ -67,4 +67,26 @@ f60d1ef6307bc56ed4f3f8fe41eacd9883b571ae87dc9dd018b0083b601303b923ebba81ca
 
 ### Script and Output:
 
+```python
+import time
+import random
+
+ciphertext_hex = "f60d1ef6307bc56ed4f3f8fe41eacd9883b571ae87dc9dd018b0083b601303b923ebba81ca"
+ciphertext = bytes.fromhex(ciphertext_hex)
+
+# Assuming the challenge was generated recently, we check times around now
+current_time = int(time.time())
+
+# We know the flag starts with HQX{
+for seed in range(current_time - 31536000, current_time + 3600):
+    random.seed(seed)
+    keystream = bytearray(int(random.random() * 256) for _ in range(len(ciphertext)))
+    decoded = bytes([c ^ k for c, k in zip(ciphertext, keystream)])
+    
+    if decoded.startswith(b"HQX{"):
+        print(f"Found seed: {seed}")
+        print(f"Flag: {decoded.decode('utf-8', errors='ignore')}")
+        break
+```
+
 ![Seeds of Time Script Output](/assets/images/writeups/tcs-hackquest/04-seeds-of-time.png)

@@ -106,7 +106,7 @@ int main() {
         <header class="post-header">
             <h1>Seeds of Time</h1>
             
-            <p class="post-meta">Published: April 29, 2026</p>
+            <p class="post-meta">Published: May 7, 2026</p>
             
             
             <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
@@ -183,6 +183,27 @@ Unlike other PRNGs, Python’s <code class="language-plaintext highlighter-rouge
 </ol>
 
 <h3 id="script-and-output">Script and Output:</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">time</span>
+<span class="kn">import</span> <span class="n">random</span>
+
+<span class="n">ciphertext_hex</span> <span class="o">=</span> <span class="sh">"</span><span class="s">f60d1ef6307bc56ed4f3f8fe41eacd9883b571ae87dc9dd018b0083b601303b923ebba81ca</span><span class="sh">"</span>
+<span class="n">ciphertext</span> <span class="o">=</span> <span class="nb">bytes</span><span class="p">.</span><span class="nf">fromhex</span><span class="p">(</span><span class="n">ciphertext_hex</span><span class="p">)</span>
+
+<span class="c1"># Assuming the challenge was generated recently, we check times around now
+</span><span class="n">current_time</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">time</span><span class="p">.</span><span class="nf">time</span><span class="p">())</span>
+
+<span class="c1"># We know the flag starts with HQX{
+</span><span class="k">for</span> <span class="n">seed</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">current_time</span> <span class="o">-</span> <span class="mi">31536000</span><span class="p">,</span> <span class="n">current_time</span> <span class="o">+</span> <span class="mi">3600</span><span class="p">):</span>
+    <span class="n">random</span><span class="p">.</span><span class="nf">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">keystream</span> <span class="o">=</span> <span class="nf">bytearray</span><span class="p">(</span><span class="nf">int</span><span class="p">(</span><span class="n">random</span><span class="p">.</span><span class="nf">random</span><span class="p">()</span> <span class="o">*</span> <span class="mi">256</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">ciphertext</span><span class="p">)))</span>
+    <span class="n">decoded</span> <span class="o">=</span> <span class="nf">bytes</span><span class="p">([</span><span class="n">c</span> <span class="o">^</span> <span class="n">k</span> <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">zip</span><span class="p">(</span><span class="n">ciphertext</span><span class="p">,</span> <span class="n">keystream</span><span class="p">)])</span>
+    
+    <span class="k">if</span> <span class="n">decoded</span><span class="p">.</span><span class="nf">startswith</span><span class="p">(</span><span class="sa">b</span><span class="sh">"</span><span class="s">HQX{</span><span class="sh">"</span><span class="p">):</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Found seed: </span><span class="si">{</span><span class="n">seed</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Flag: </span><span class="si">{</span><span class="n">decoded</span><span class="p">.</span><span class="nf">decode</span><span class="p">(</span><span class="sh">'</span><span class="s">utf-8</span><span class="sh">'</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="sh">'</span><span class="s">ignore</span><span class="sh">'</span><span class="p">)</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">break</span>
+</code></pre></div></div>
 
 <p><img src="/assets/images/writeups/tcs-hackquest/04-seeds-of-time.png" alt="Seeds of Time Script Output" /></p>
 

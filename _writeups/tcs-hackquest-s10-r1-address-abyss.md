@@ -36,12 +36,46 @@ summary: "Reconstruct a flag by extracting positional characters embedded within
    * Index 0 corresponds to the first character
    * Index 1 to the second, and so on.
 
-6. I just created a script to automate this task (extracting all indices characters). At this point I was not sure how to get them in sequence, I just ran my script:
+6. I created a script to automate this task (extracting all indices characters and sorting them):
+
+```python
+import re
+
+flag_chars = {}
+
+with open('ip_logs_2F7Ecc0bba.txt', 'r') as f:
+    for line in f:
+        line = line.strip()
+        
+        # Match IPv4 pattern: 92.7.X.Y (X=decimal index, Y=ASCII code)
+        m1 = re.match(r'^92\.7\.(\d+)\.(\d+)$', line)
+        if m1:
+            idx = int(m1.group(1))
+            char = chr(int(m1.group(2)))
+            flag_chars[idx] = char
+        
+        # Match IPv6-like pattern: 2510:a1:X::Y (X=hex index, Y=character)
+        m2 = re.match(r'^2510:a1:([0-9a-fA-F]+)::(.)$', line)
+        if m2:
+            idx = int(m2.group(1), 16)
+            char = m2.group(2)
+            flag_chars[idx] = char
+
+# Sort by index and reconstruct the string
+flag = ""
+for idx in sorted(flag_chars.keys()):
+    flag += flag_chars[idx]
+
+print(flag)
+```
+
+7. Running the script gave me the reconstructed string:
 
 ![Address Abyss Output](/assets/images/writeups/tcs-hackquest/05-address-abyss.png)
 
-7. Yes, that output doesn't make total sense natively, but notice that it contains readable characters at the start. Even the pattern was:
+8. The raw output was:
    `HQX?e1f63411d030814e5cb7eebb0860d9f4?`
-   Which really seems like a flag after interchanging `?` to `{` and `}`.
+   Which is basically the flag after correcting the curly braces from `?` to `{` and `}`.
 
-8. After trying the corrected flag format, it succeeded.
+9. After correcting the format, the flag was accepted!
+
