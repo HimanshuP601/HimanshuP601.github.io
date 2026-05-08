@@ -7,16 +7,30 @@ title: Research Notes
     <h1 style="margin-bottom: 0.5rem;">Study Notes & Mental Models</h1>
     <p style="margin-bottom: 3rem;">A digital repository of study notes, concepts, and low-level system references.</p>
 
-    <div class="grid">
-        {% for note in site.notes %}
-            <div class="card">
-                <h3>{{ note.title }}</h3>
-                <p style="margin-bottom: 1.5rem;">{{ note.summary }}</p>
-                <div class="meta" style="margin-bottom: 1.5rem;">
-                    {% if note.date %}Added: {{ note.date | date: "%B %d, %Y" }}{% endif %}
-                </div>
-                <a href="{{ note.url | relative_url }}" class="view-btn">Open Note</a>
+    {% assign grouped_notes = site.notes | group_by: "category" %}
+    {% for category in grouped_notes %}
+        {% if category.name %}
+            <h2 style="margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem;">{{ category.name }}</h2>
+        {% endif %}
+        
+        {% assign subcategories = category.items | group_by: "subcategory" %}
+        {% for subcategory in subcategories %}
+            {% if subcategory.name %}
+                <h3 style="margin-top: 1.5rem; margin-bottom: 1rem; color: #aaa;">{{ subcategory.name }}</h3>
+            {% endif %}
+            
+            <div class="grid" style="margin-bottom: 2rem;">
+                {% for note in subcategory.items %}
+                    <div class="card">
+                        <h3>{{ note.title }}</h3>
+                        <p style="margin-bottom: 1.5rem;">{{ note.summary }}</p>
+                        <div class="meta" style="margin-bottom: 1.5rem;">
+                            {% if note.date %}Added: {{ note.date | date: "%B %d, %Y" }}{% endif %}
+                        </div>
+                        <a href="{{ note.url | relative_url }}" class="view-btn">Open Note</a>
+                    </div>
+                {% endfor %}
             </div>
         {% endfor %}
-    </div>
+    {% endfor %}
 </div>

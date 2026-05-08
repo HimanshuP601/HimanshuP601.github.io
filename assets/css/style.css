@@ -110,7 +110,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h1 {
-  font-size: 3rem;
+  font-size: clamp(2rem, 5vw, 3rem);
   letter-spacing: -1px;
 }
 
@@ -213,7 +213,7 @@ main {
 /* Grid Layout & Glassmorphism Cards */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 2rem;
 }
 
@@ -325,6 +325,9 @@ a.social-btn:hover {
   backdrop-filter: blur(16px);
   max-width: 900px;
   margin: 0 auto;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  min-width: 0;
 }
 .post-content h2, .post-content h3 {
   color: var(--text-main);
@@ -342,6 +345,8 @@ a.social-btn:hover {
   color: var(--accent-purple);
   border-radius: 4px;
   font-family: monospace;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 .post-content pre {
   background: #000;
@@ -350,6 +355,11 @@ a.social-btn:hover {
   overflow-x: auto;
   margin-bottom: 1.5rem;
   border-radius: 8px;
+  max-width: 100%;
+}
+.highlighter-rouge {
+  max-width: 100%;
+  overflow-x: auto;
 }
 .post-content pre code {
   background: transparent;
@@ -473,6 +483,28 @@ footer {
     width: 100%;
     position: static;
     margin-bottom: 2rem;
+  }
+}
+
+@media (max-width: 768px) {
+  header .container {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+  }
+  nav a {
+    margin-left: 0;
+  }
+  .post-content {
+    padding: 1.5rem;
+  }
+  .container {
+    padding: 0 1.5rem;
   }
 }
 
