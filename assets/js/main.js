@@ -83,4 +83,10 @@ document.addEventListener("DOMContentLoaded", function() {
                 mediumContainer.innerHTML = "<p style='color: red;'>[!] err_timeout: unable to resolve feed</p>";
             });
     }
+
+    // 4. Duplicate Background Code for Infinite Scroll Effect
+    const bgCodeLayer = document.getElementById("bg-code-layer");
+    if (bgCodeLayer) {
+        bgCodeLayer.innerText = bgCodeLayer.innerText.repeat(4);
+    }
 });
