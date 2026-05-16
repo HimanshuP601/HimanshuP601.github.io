@@ -1,7 +1,7 @@
 ---
 layout: page
 title: "ORW"
-major_type: CTF
+major_type: Platform
 parent_group: pwnable.tw
 summary: "Writing open-read-write shellcode to bypass Seccomp restrictions on a 32-bit ELF binary."
 ---

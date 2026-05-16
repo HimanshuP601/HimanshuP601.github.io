@@ -1,7 +1,7 @@
 ---
 layout: page
 title: "Start"
-major_type: CTF
+major_type: Platform
 parent_group: pwnable.tw
 summary: "Introduction to pwnable.tw: Leaking a stack pointer to execute shellcode on the stack via ret2shellcode."
 ---
