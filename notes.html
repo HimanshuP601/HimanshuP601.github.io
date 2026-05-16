@@ -3,34 +3,56 @@ layout: default
 title: Research Notes
 ---
 
-<div class="container">
-    <h1 style="margin-bottom: 0.5rem;">Study Notes & Mental Models</h1>
-    <p style="margin-bottom: 3rem;">A digital repository of study notes, concepts, and low-level system references.</p>
+<div style="margin-bottom: 2rem;">
+    <h1 style="margin-bottom: 0.5rem; color: var(--text-bright);">Study Notes & Mental Models</h1>
+    <p style="color: var(--text-muted);">A digital repository of study notes, concepts, and low-level system references.</p>
+</div>
 
-    {% assign grouped_notes = site.notes | group_by: "category" %}
-    {% for category in grouped_notes %}
-        {% if category.name %}
-            <h2 style="margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem;">{{ category.name }}</h2>
-        {% endif %}
-        
-        {% assign subcategories = category.items | group_by: "subcategory" %}
-        {% for subcategory in subcategories %}
-            {% if subcategory.name %}
-                <h3 style="margin-top: 1.5rem; margin-bottom: 1rem; color: #aaa;">{{ subcategory.name }}</h3>
+<div class="docked-window">
+    <div class="window-header">
+        <span>Research Knowledge Base</span>
+        <span class="tag">/notes</span>
+    </div>
+    <div class="window-body padded">
+        {% assign grouped_notes = site.notes | group_by: "category" %}
+        {% for category in grouped_notes %}
+            {% if category.name %}
+                <h2 style="font-family: var(--font-mono); font-size: 1.1rem; color: var(--syn-address); margin-top: {% if forloop.first %}0{% else %}2rem{% endif %}; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                    {{ category.name }}
+                </h2>
             {% endif %}
             
-            <div class="grid" style="margin-bottom: 2rem;">
-                {% for note in subcategory.items %}
-                    <div class="card">
-                        <h3>{{ note.title }}</h3>
-                        <p style="margin-bottom: 1.5rem;">{{ note.summary }}</p>
-                        <div class="meta" style="margin-bottom: 1.5rem;">
-                            {% if note.date %}Added: {{ note.date | date: "%B %d, %Y" }}{% endif %}
-                        </div>
-                        <a href="{{ note.url | relative_url }}" class="view-btn">Open Note</a>
-                    </div>
-                {% endfor %}
-            </div>
+            {% assign subcategories = category.items | group_by: "subcategory" %}
+            {% for subcategory in subcategories %}
+                {% if subcategory.name %}
+                    <h3 style="font-family: var(--font-mono); font-size: 0.95rem; color: var(--text-bright); margin-top: 1rem; margin-bottom: 0.5rem;">
+                        <span style="color: var(--syn-danger);">-></span> {{ subcategory.name }}
+                    </h3>
+                {% endif %}
+                
+                <div class="ida-list-wrapper" style="max-height: none;">
+                    <table class="ida-list">
+                        <thead>
+                            <tr>
+                                <th>Memory Ref</th>
+                                <th>Concept Name</th>
+                                <th>Category</th>
+                                <th>Date Added</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for note in subcategory.items %}
+                            <tr>
+                                <td class="ida-addr">0x{{ forloop.index | plus: 536870912 | slice: -8, 8 }}</td>
+                                <td class="ida-name"><a href="{{ note.url | relative_url }}">{{ note.title }}</a></td>
+                                <td class="ida-seg">.{{ note.category | default: "misc" | downcase | replace: " ", "_" }}</td>
+                                <td class="ida-date">{{ note.date | date: "%Y/%m/%d" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endfor %}
         {% endfor %}
-    {% endfor %}
+    </div>
 </div>

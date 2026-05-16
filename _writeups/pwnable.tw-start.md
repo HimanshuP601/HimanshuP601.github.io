@@ -4,6 +4,7 @@ title: "Start"
 major_type: Platform
 parent_group: pwnable.tw
 summary: "Introduction to pwnable.tw: Leaking a stack pointer to execute shellcode on the stack via ret2shellcode."
+protections: ["No PIE", "No Canary", "NX disabled"]
 ---
 
 **Flag:** `FLAG{Pwn4bl3_tW_1s_y0ur_st4rt}`

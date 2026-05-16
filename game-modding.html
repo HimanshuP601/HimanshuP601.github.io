@@ -3,20 +3,36 @@ layout: default
 title: Game Modding
 ---
 
-<div class="container">
-    <h1 style="margin-bottom: 0.5rem;">Game Modding</h1>
-    <p style="margin-bottom: 3rem;">Memory manipulation, structure reversing, and internal modification notes.</p>
+<div style="margin-bottom: 2rem;">
+    <h1 style="margin-bottom: 0.5rem; color: var(--text-bright);">Game Modding</h1>
+    <p style="color: var(--text-muted);">Memory manipulation, structure reversing, and internal modification notes.</p>
+</div>
 
-    <div class="grid">
-        {% for mod in site.game_modding %}
-            <div class="card">
-                <h3>{{ mod.title }}</h3>
-                <p style="margin-bottom: 1.5rem;">{{ mod.summary }}</p>
-                <div class="meta" style="margin-bottom: 1.5rem;">
-                    {% if mod.game %}Target: {{ mod.game }}{% endif %}
-                </div>
-                <a href="{{ mod.url | relative_url }}" class="view-btn">View Notes</a>
-            </div>
-        {% endfor %}
+<div class="docked-window">
+    <div class="window-header">
+        <span>Game Modding Notes</span>
+        <span class="tag">/game-modding</span>
+    </div>
+    <div class="ida-list-wrapper" style="max-height: none;">
+        <table class="ida-list">
+            <thead>
+                <tr>
+                    <th>Address</th>
+                    <th>Target Module</th>
+                    <th>Game Name</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mod in site.game_modding %}
+                <tr>
+                    <td class="ida-addr">0x{{ forloop.index | plus: 140737488355328 | prepend: '00' | slice: -12, 12 }}</td>
+                    <td class="ida-name"><a href="{{ mod.url | relative_url }}">{{ mod.title }}</a></td>
+                    <td class="ida-seg">.{{ mod.game | default: "unknown" | downcase | replace: " ", "_" }}</td>
+                    <td class="ida-date">{{ mod.date | date: "%Y/%m/%d" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>

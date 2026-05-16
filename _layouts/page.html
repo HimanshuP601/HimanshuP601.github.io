@@ -2,15 +2,14 @@
 layout: default
 ---
 
-<div class="container page-layout">
+<div class="container writeup-grid">
     <article class="post">
-        <header class="post-header">
-            <h1>{{ page.title }}</h1>
-            {% if page.date %}
-            <p class="post-meta">Published: {{ page.date | date: "%B %-d, %Y" }}</p>
-            {% endif %}
-            {% if page.tags %}
-            <p style="color: var(--text-muted); margin-top: 5px; font-size: 0.9rem;">Tags: {{ page.tags | join: ", " }}</p>
+        <header class="post-header" style="margin-bottom: 2rem;">
+            <h1 style="color: var(--text-bright);">{{ page.title }}</h1>
+            {% if page.summary %}
+            <p style="color: var(--text-muted); font-size: 1.1rem; border-left: 2px solid var(--syn-address); padding-left: 1rem; margin-top: 1rem;">
+                {{ page.summary }}
+            </p>
             {% endif %}
         </header>
 
@@ -19,10 +18,84 @@ layout: default
         </div>
     </article>
     
-    <aside class="toc-container">
-        <div class="toc-sidebar" id="toc-sidebar">
-            <h3>On this page</h3>
-            <ul id="toc-list"></ul>
+    <aside class="context-sidebar">
+        <div class="docked-window" style="margin-bottom: 2rem;">
+            <div class="window-header">
+                <span>Registers [Context]</span>
+            </div>
+            <div class="pwndbg-panel" style="padding: 1rem; border-radius: 0 0 4px 4px; border: 1px solid var(--border-color); border-top: none;">
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">RSI</span>
+                    <span class="pwndbg-str" style="color: var(--text-bright);">"{{ page.title | truncate: 15 }}"</span>
+                </div>
+                {% if page.major_type %}
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">TYPE</span>
+                    <span class="pwndbg-addr">{{ page.major_type }}</span>
+                </div>
+                {% endif %}
+                {% if page.parent_group %}
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">RDI</span>
+                    <span class="pwndbg-instr">&lt;{{ page.parent_group }}&gt;</span>
+                </div>
+                {% endif %}
+                {% if page.date %}
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">RDX</span>
+                    <span class="pwndbg-value">{{ page.date | date: "%Y-%m-%d" }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="docked-window">
+            <div class="window-header">
+                <span>Stack [TOC]</span>
+            </div>
+            <div class="pwndbg-panel" style="padding: 1rem; border-radius: 0 0 4px 4px; border: 1px solid var(--border-color); border-top: none;">
+                <ul id="toc-list" style="list-style-type: none; padding-left: 0; font-family: var(--font-mono); font-size: 0.85rem; margin: 0;">
+                    <!-- JS fills this -->
+                </ul>
+            </div>
         </div>
     </aside>
 </div>
+
+<script>
+// Add Term Headers to code blocks
+document.addEventListener("DOMContentLoaded", function() {
+    const pres = document.querySelectorAll(".post-content pre");
+    pres.forEach(pre => {
+        // Only apply if it contains a code block and isn't already processed
+        if (!pre.querySelector("code")) return;
+        
+        let lang = "bash";
+        const code = pre.querySelector("code");
+        if (code && code.className) {
+            const match = code.className.match(/language-(\w+)/);
+            if (match) lang = match[1];
+        }
+        
+        const header = document.createElement("div");
+        header.className = "term-header";
+        
+        const titleSpan = document.createElement("span");
+        if (lang === "nasm" || lang === "asm") {
+            titleSpan.innerHTML = '<span style="color: var(--syn-danger);">gdb></span> disassemble';
+        } else if (lang === "python" || lang === "py") {
+            titleSpan.innerHTML = '<span style="color: var(--syn-string);">python3</span> exploit.py';
+        } else {
+            titleSpan.innerHTML = '<span style="color: var(--syn-danger);">himanshu@kali</span>:~$';
+        }
+        
+        const typeSpan = document.createElement("span");
+        typeSpan.innerText = lang;
+        
+        header.appendChild(titleSpan);
+        header.appendChild(typeSpan);
+        
+        pre.parentNode.insertBefore(header, pre);
+    });
+});
+</script>
