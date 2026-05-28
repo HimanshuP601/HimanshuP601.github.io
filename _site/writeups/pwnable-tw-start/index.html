@@ -259,7 +259,7 @@ start: ELF 32-bit LSB executable, Intel i386, version 1 <span class="o">(</span>
                 
                 <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
                     <span class="pwndbg-label" style="width: 50px;">RDX</span>
-                    <span class="pwndbg-value">2026-05-16</span>
+                    <span class="pwndbg-value">2026-05-28</span>
                 </div>
                 
             </div>
@@ -307,9 +307,27 @@ document.addEventListener("DOMContentLoaded", function() {
         
         const typeSpan = document.createElement("span");
         typeSpan.innerText = lang;
+        typeSpan.style.marginRight = "1rem";
+        
+        const copyBtn = document.createElement("button");
+        copyBtn.innerText = "Copy";
+        copyBtn.className = "copy-btn";
+        copyBtn.onclick = function() {
+            const textToCopy = pre.innerText;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                copyBtn.innerText = "Copied!";
+                setTimeout(() => copyBtn.innerText = "Copy", 2000);
+            });
+        };
+        
+        const rightGroup = document.createElement("div");
+        rightGroup.style.display = "flex";
+        rightGroup.style.alignItems = "center";
+        rightGroup.appendChild(typeSpan);
+        rightGroup.appendChild(copyBtn);
         
         header.appendChild(titleSpan);
-        header.appendChild(typeSpan);
+        header.appendChild(rightGroup);
         
         pre.parentNode.insertBefore(header, pre);
     });

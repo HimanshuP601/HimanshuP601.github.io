@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>License Check</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="License Check" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Subtle Hexdump Background to mimic RE tool -->
+    <div class="bg-hexdump" aria-hidden="true">
+00000000  7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00  |.ELF............|
+00000010  03 00 3e 00 01 00 00 00  60 10 40 00 00 00 00 00  |..>.....`.@.....|
+00000020  40 00 00 00 00 00 00 00  48 30 00 00 00 00 00 00  |@.......H0......|
+00000030  00 00 00 00 40 00 38 00  09 00 40 00 1a 00 19 00  |....@.8...@.....|
+00000040  06 00 00 00 04 00 00 00  40 00 00 00 00 00 00 00  |........@.......|
+00000050  40 00 40 00 00 00 00 00  40 00 40 00 00 00 00 00  |@.@.....@.@.....|
+00000060  f8 01 00 00 00 00 00 00  f8 01 00 00 00 00 00 00  |................|
+00000070  08 00 00 00 00 00 00 00  03 00 00 00 04 00 00 00  |................|
+00000080  38 02 00 00 00 00 00 00  38 02 40 00 00 00 00 00  |8.......8.@.....|
+00000090  38 02 40 00 00 00 00 00  1c 00 00 00 00 00 00 00  |8.@.............|
+000000a0  1c 00 00 00 00 00 00 00  01 00 00 00 00 00 00 00  |................|
+000000b0  01 00 00 00 05 00 00 00  00 00 00 00 00 00 00 00  |................|
+000000c0  00 00 40 00 00 00 00 00  00 00 40 00 00 00 00 00  |..@.......@.....|
+000000d0  e4 08 00 00 00 00 00 00  e4 08 00 00 00 00 00 00  |................|
+000000e0  00 10 00 00 00 00 00 00  01 00 00 00 06 00 00 00  |................|
+000000f0  e8 0d 00 00 00 00 00 00  e8 0d 60 00 00 00 00 00  |........`.@.....|
+00000100  e8 0d 60 00 00 00 00 00  48 02 00 00 00 00 00 00  |..`.....H.......|
+00000110  50 02 00 00 00 00 00 00  00 10 00 00 00 00 00 00  |P...............|
+00000120  02 00 00 00 06 00 00 00  08 0e 00 00 00 00 00 00  |................|
+00000130  08 0e 60 00 00 00 00 00  08 0e 60 00 00 00 00 00  |..`.......`.....|
+00000140  f0 01 00 00 00 00 00 00  f0 01 00 00 00 00 00 00  |................|
+00000150  08 00 00 00 00 00 00 00  04 00 00 00 04 00 00 00  |................|
+00000160  54 02 00 00 00 00 00 00  54 02 40 00 00 00 00 00  |T.......T.@.....|
+00000170  54 02 40 00 00 00 00 00  44 00 00 00 00 00 00 00  |T.@.....D.......|
+00000180  44 00 00 00 00 00 00 00  04 00 00 00 00 00 00 00  |D...............|
+00000190  51 e5 74 64 06 00 00 00  00 00 00 00 00 00 00 00  |Q.td............|
+000001a0  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+000001b0  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+000001c0  08 00 00 00 00 00 00 00  52 e5 74 64 04 00 00 00  |........R.td....|
+000001d0  e8 0d 00 00 00 00 00 00  e8 0d 60 00 00 00 00 00  |........`.@.....|
+    </div>
+
+    <header>
+        <div class="page-container">
+            <a href="/" class="site-wordmark">0xKAAAMMUUI</a>
+            <nav>
+                <a href="/" >0x0000 [.text] Home</a>
+                <a href="/writeups/" class="active">0x1000 [.data] Writeups</a>
+                <a href="/game-modding/" >0x2000 [.ro] Game Mods</a>
+                <a href="/notes/" >0x3000 [.bss] Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="page-container">
+        <div class="container writeup-grid">
+    <article class="post">
+        <header class="post-header" style="margin-bottom: 2rem;">
+            <h1 style="color: var(--text-bright);">License Check</h1>
+            
+            <p style="color: var(--text-muted); font-size: 1.1rem; border-left: 2px solid var(--syn-address); padding-left: 1rem; margin-top: 1rem;">
+                Reversing a basic XOR-encoded string to bypass an offline license verification system.
+            </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="description">Description</h2>
+
+<p>A suspicious license verification system was recovered from an abandoned SECLEAF development machine.</p>
+
+<p>The authentication server is offline.</p>
+
+<p>Can you recover the correct license key and unlock the protected access?</p>
+
+<p><strong>Flag Format:</strong> <code class="language-plaintext highlighter-rouge">SecLeaf{}</code></p>
+
+<h2 id="approach">Approach</h2>
+
+<ol>
+  <li><strong>Decompiling the Binary:</strong> Opening the binary in a decompiler (like Ghidra) gives us a clear look at the <code class="language-plaintext highlighter-rouge">main</code> function:
+    <div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">undefined8</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="c1">// ... local variable setup ...</span>
+  <span class="kt">char</span> <span class="n">local_68</span> <span class="p">[</span><span class="mi">32</span><span class="p">];</span>
+  <span class="kt">char</span> <span class="n">local_48</span> <span class="p">[</span><span class="mi">64</span><span class="p">];</span>
+     
+  <span class="n">builtin_strncpy</span><span class="p">(</span><span class="n">local_68</span><span class="p">,</span><span class="s">"</span><span class="se">\x11\a\x01\x10\a\x16</span><span class="s">o</span><span class="se">\x0e\v\x01\a\f\x11\a</span><span class="s">oprpw"</span><span class="p">,</span><span class="mh">0x14</span><span class="p">);</span>
+  <span class="c1">// ... flag setup ...</span>
+     
+  <span class="n">decode</span><span class="p">(</span><span class="n">local_68</span><span class="p">,</span> <span class="mh">0x13</span><span class="p">,</span> <span class="mh">0x42</span><span class="p">);</span>
+  <span class="n">decode</span><span class="p">(</span><span class="o">&amp;</span><span class="n">local_88</span><span class="p">,</span> <span class="mh">0x1a</span><span class="p">,</span> <span class="mh">0x55</span><span class="p">);</span>
+     
+  <span class="n">puts</span><span class="p">(</span><span class="s">"=== SECLEAF LICENSE SYSTEM ==="</span><span class="p">);</span>
+  <span class="n">printf</span><span class="p">(</span><span class="s">"Enter License Key: "</span><span class="p">);</span>
+  <span class="n">__isoc23_scanf</span><span class="p">(</span><span class="o">&amp;</span><span class="n">DAT_0010203b</span><span class="p">,</span> <span class="n">local_48</span><span class="p">);</span> <span class="c1">// User input</span>
+     
+  <span class="n">iVar1</span> <span class="o">=</span> <span class="n">strcmp</span><span class="p">(</span><span class="n">local_48</span><span class="p">,</span> <span class="n">local_68</span><span class="p">);</span>
+  <span class="k">if</span> <span class="p">(</span><span class="n">iVar1</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">puts</span><span class="p">(</span><span class="s">"</span><span class="se">\n</span><span class="s">Access Granted"</span><span class="p">);</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">"Flag: %s</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">local_88</span><span class="p">);</span>
+  <span class="p">}</span>
+  <span class="c1">// ...</span>
+<span class="p">}</span>
+</code></pre></div>    </div>
+    <p>The program takes our input (<code class="language-plaintext highlighter-rouge">local_48</code>) and uses <code class="language-plaintext highlighter-rouge">strcmp</code> to compare it to <code class="language-plaintext highlighter-rouge">local_68</code>.</p>
+  </li>
+  <li><strong>Analyzing the Decode Function:</strong> <code class="language-plaintext highlighter-rouge">local_68</code> is initialized with gibberish characters and then passed into a <code class="language-plaintext highlighter-rouge">decode</code> function before the comparison happens. Let’s look at <code class="language-plaintext highlighter-rouge">decode</code>:
+    <div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">decode</span><span class="p">(</span><span class="kt">long</span> <span class="n">param_1</span><span class="p">,</span><span class="kt">int</span> <span class="n">param_2</span><span class="p">,</span><span class="n">byte</span> <span class="n">param_3</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="n">undefined4</span> <span class="n">local_c</span><span class="p">;</span>
+  <span class="k">for</span> <span class="p">(</span><span class="n">local_c</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">local_c</span> <span class="o">&lt;</span> <span class="n">param_2</span><span class="p">;</span> <span class="n">local_c</span> <span class="o">=</span> <span class="n">local_c</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="o">*</span><span class="p">(</span><span class="n">byte</span> <span class="o">*</span><span class="p">)(</span><span class="n">param_1</span> <span class="o">+</span> <span class="n">local_c</span><span class="p">)</span> <span class="o">=</span> <span class="o">*</span><span class="p">(</span><span class="n">byte</span> <span class="o">*</span><span class="p">)(</span><span class="n">param_1</span> <span class="o">+</span> <span class="n">local_c</span><span class="p">)</span> <span class="o">^</span> <span class="n">param_3</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="k">return</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>    </div>
+    <p>This is a simple XOR decryption loop. It iterates through the string at <code class="language-plaintext highlighter-rouge">param_1</code> for <code class="language-plaintext highlighter-rouge">param_2</code> characters and XORs each byte with <code class="language-plaintext highlighter-rouge">param_3</code>.</p>
+  </li>
+  <li><strong>Reversing the Logic:</strong> We know the inputs to <code class="language-plaintext highlighter-rouge">decode</code> for the license key are:
+    <ul>
+      <li>Encrypted String: <code class="language-plaintext highlighter-rouge">\x11\a\x01\x10\a\x16o\x0e\v\x01\a\f\x11\aoprpw</code></li>
+      <li>Length (<code class="language-plaintext highlighter-rouge">param_2</code>): <code class="language-plaintext highlighter-rouge">0x13</code> (19 bytes)</li>
+      <li>XOR Key (<code class="language-plaintext highlighter-rouge">param_3</code>): <code class="language-plaintext highlighter-rouge">0x42</code></li>
+    </ul>
+
+    <p>We can manually XOR each byte with <code class="language-plaintext highlighter-rouge">0x42</code> (66 in decimal):</p>
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">\x11</code> ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x53</code> (<code class="language-plaintext highlighter-rouge">S</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">\a</code> (0x07) ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x45</code> (<code class="language-plaintext highlighter-rouge">E</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">\x01</code> ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x43</code> (<code class="language-plaintext highlighter-rouge">C</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">\x10</code> ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x52</code> (<code class="language-plaintext highlighter-rouge">R</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">\a</code> (0x07) ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x45</code> (<code class="language-plaintext highlighter-rouge">E</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">\x16</code> ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x54</code> (<code class="language-plaintext highlighter-rouge">T</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">o</code> (0x6f) ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x2d</code> (<code class="language-plaintext highlighter-rouge">-</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">\x0e</code> ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x4c</code> (<code class="language-plaintext highlighter-rouge">L</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">\v</code> (0x0b) ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x49</code> (<code class="language-plaintext highlighter-rouge">I</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">\x01</code> ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x43</code> (<code class="language-plaintext highlighter-rouge">C</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">\a</code> (0x07) ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x45</code> (<code class="language-plaintext highlighter-rouge">E</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">\f</code> (0x0c) ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x4e</code> (<code class="language-plaintext highlighter-rouge">N</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">\x11</code> ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x53</code> (<code class="language-plaintext highlighter-rouge">S</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">\a</code> (0x07) ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x45</code> (<code class="language-plaintext highlighter-rouge">E</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">o</code> (0x6f) ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x2d</code> (<code class="language-plaintext highlighter-rouge">-</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">p</code> (0x70) ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x32</code> (<code class="language-plaintext highlighter-rouge">2</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">r</code> (0x72) ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x30</code> (<code class="language-plaintext highlighter-rouge">0</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">p</code> (0x70) ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x32</code> (<code class="language-plaintext highlighter-rouge">2</code>)</li>
+      <li><code class="language-plaintext highlighter-rouge">w</code> (0x77) ^ <code class="language-plaintext highlighter-rouge">0x42</code> = <code class="language-plaintext highlighter-rouge">0x35</code> (<code class="language-plaintext highlighter-rouge">5</code>)</li>
+    </ul>
+  </li>
+  <li><strong>Executing:</strong> The decrypted string is <code class="language-plaintext highlighter-rouge">SECRET-LICENSE-2025</code>. When we run the binary and input this key, the <code class="language-plaintext highlighter-rouge">strcmp</code> succeeds, granting access and decoding the flag for us!</li>
+</ol>
+
+<h3 id="output">Output</h3>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>=== SECLEAF LICENSE SYSTEM ===
+Enter License Key: SECRET-LICENSE-2025
+
+Access Granted
+Flag: SecLeaf{...}
+</code></pre></div></div>
+
+        </div>
+    </article>
+    
+    <aside class="context-sidebar">
+        <div class="docked-window" style="margin-bottom: 2rem;">
+            <div class="window-header">
+                <span>Registers [Context]</span>
+            </div>
+            <div class="pwndbg-panel" style="padding: 1rem; border-radius: 0 0 4px 4px; border: 1px solid var(--border-color); border-top: none;">
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">RSI</span>
+                    <span class="pwndbg-str" style="color: var(--text-bright);">"License Check"</span>
+                </div>
+                
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">TYPE</span>
+                    <span class="pwndbg-addr">CTF</span>
+                </div>
+                
+                
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">RDI</span>
+                    <span class="pwndbg-instr">&lt;SecLeaf&gt;</span>
+                </div>
+                
+                
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">RDX</span>
+                    <span class="pwndbg-value">2026-05-28</span>
+                </div>
+                
+            </div>
+        </div>
+
+        <div class="docked-window">
+            <div class="window-header">
+                <span>Stack [TOC]</span>
+            </div>
+            <div class="pwndbg-panel" style="padding: 1rem; border-radius: 0 0 4px 4px; border: 1px solid var(--border-color); border-top: none;">
+                <ul id="toc-list" style="list-style-type: none; padding-left: 0; font-family: var(--font-mono); font-size: 0.85rem; margin: 0;">
+                    <!-- JS fills this -->
+                </ul>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<script>
+// Add Term Headers to code blocks
+document.addEventListener("DOMContentLoaded", function() {
+    const pres = document.querySelectorAll(".post-content pre");
+    pres.forEach(pre => {
+        // Only apply if it contains a code block and isn't already processed
+        if (!pre.querySelector("code")) return;
+        
+        let lang = "bash";
+        const code = pre.querySelector("code");
+        if (code && code.className) {
+            const match = code.className.match(/language-(\w+)/);
+            if (match) lang = match[1];
+        }
+        
+        const header = document.createElement("div");
+        header.className = "term-header";
+        
+        const titleSpan = document.createElement("span");
+        if (lang === "nasm" || lang === "asm") {
+            titleSpan.innerHTML = '<span style="color: var(--syn-danger);">gdb></span> disassemble';
+        } else if (lang === "python" || lang === "py") {
+            titleSpan.innerHTML = '<span style="color: var(--syn-string);">python3</span> exploit.py';
+        } else {
+            titleSpan.innerHTML = '<span style="color: var(--syn-danger);">himanshu@kali</span>:~$';
+        }
+        
+        const typeSpan = document.createElement("span");
+        typeSpan.innerText = lang;
+        typeSpan.style.marginRight = "1rem";
+        
+        const copyBtn = document.createElement("button");
+        copyBtn.innerText = "Copy";
+        copyBtn.className = "copy-btn";
+        copyBtn.onclick = function() {
+            const textToCopy = pre.innerText;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                copyBtn.innerText = "Copied!";
+                setTimeout(() => copyBtn.innerText = "Copy", 2000);
+            });
+        };
+        
+        const rightGroup = document.createElement("div");
+        rightGroup.style.display = "flex";
+        rightGroup.style.alignItems = "center";
+        rightGroup.appendChild(typeSpan);
+        rightGroup.appendChild(copyBtn);
+        
+        header.appendChild(titleSpan);
+        header.appendChild(rightGroup);
+        
+        pre.parentNode.insertBefore(header, pre);
+    });
+});
+</script>
+
+    </div>
+
+    <footer>
+        <div class="page-container">
+            <p>
+                <a href="https://github.com/HimanshuP601" target="_blank">0xGITHUB</a> | 
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">0xLINKEDIN</a> | 
+                <a href="https://medium.com/@HimanshuP601" target="_blank">0xMEDIUM</a> | 
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">0xPWN.COLLEGE</a> | 
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">0xHTB</a>
+            </p>
+            <p style="margin-top: 1rem; color: var(--border-color);">&copy; 2026 Himanshu Parate</p>
+        </div>
+    </footer>
+
+    <script>
+        console.log("%c" +
+            "  .o oOOOOOOOo                                            OOOo\n" +
+            "  Ob.OOOOOOOo  OOOo.      oOOo.                      .adOOOOOOO\n" +
+            "  OboO''''''''''''.OOo. .oOOOOOo.    OOOo.oOOOOOo..''''''''''OO\n" +
+            "  OOP.oOOOOOOOOOOO \"POOOOOOOOOOOo.   `\"OOOOOOOOOP,OOOOOOOOOOOB'\n" +
+            "  `O'OOOO'     `OOOOo\"OOOOOOOOOOO` .adOOOOOOOOO\"oOOO'    `OOOOo\n" +
+            "  .OOOO'            `OOOOOOOOOOOOOOOOOOOOOOOOOO'            `OO\n" +
+            "  OOOOO                 '\"OOOOOOOOOOOOOOOO\"`                oOO\n" +
+            " oOOOOOba.                .adOOOOOOOOOOba               .adOOOOo.\n" +
+            " oOOOOOOOOOOOOOba.    .adOOOOOOOOOO@^OOOOOOOba.     .adOOOOOOOOOOOO\n" +
+            " OOOOOOOOOOOOOOOOO.OOOOOOOOOOOOOO\"`  '\"OOOOOOOOOOOOO.OOOOOOOOOOOOOO\n" +
+            " \"OOOO\"       \"YOoOOOOMOIONODOO\"`  .   '\"OOROAOPOEOOOoOY\"     \"OOO\"\n" +
+            "    Y           'OOOOOOOOOOOOOO: .oOOo. :OOOOOOOOOOO?'         :`\n" +
+            "    :            .oO%OOOOOOOOOOo.OOOOOO.oOOOOOOOOOOOO?         .\n" +
+            "    .            oOOP\"%OOOOOOOOoOOOOOOO?oOOOOO?OOOO\"OOo\n" +
+            "                 '%o  OOOO\"%OOOO%\"%OOOOO\"OOOOOO\"OOO':\n" +
+            "                      `$\"  `OOOO' `O\"Y ' `OOOO'  o             .\n" +
+            "    .                  .     OP\"          : o     . \n" +
+            "HTB{w3lc0m3_t0_my_m3m0ry}",
+            "color: red; font-family: monospace; font-size: 14px; font-weight: bold;"
+        );
+    </script>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+    </script>
+</body>
+</html>

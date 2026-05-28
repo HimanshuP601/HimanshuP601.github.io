@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forgotten Snapshot</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="Forgotten Snapshot" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Subtle Hexdump Background to mimic RE tool -->
+    <div class="bg-hexdump" aria-hidden="true">
+00000000  7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00  |.ELF............|
+00000010  03 00 3e 00 01 00 00 00  60 10 40 00 00 00 00 00  |..>.....`.@.....|
+00000020  40 00 00 00 00 00 00 00  48 30 00 00 00 00 00 00  |@.......H0......|
+00000030  00 00 00 00 40 00 38 00  09 00 40 00 1a 00 19 00  |....@.8...@.....|
+00000040  06 00 00 00 04 00 00 00  40 00 00 00 00 00 00 00  |........@.......|
+00000050  40 00 40 00 00 00 00 00  40 00 40 00 00 00 00 00  |@.@.....@.@.....|
+00000060  f8 01 00 00 00 00 00 00  f8 01 00 00 00 00 00 00  |................|
+00000070  08 00 00 00 00 00 00 00  03 00 00 00 04 00 00 00  |................|
+00000080  38 02 00 00 00 00 00 00  38 02 40 00 00 00 00 00  |8.......8.@.....|
+00000090  38 02 40 00 00 00 00 00  1c 00 00 00 00 00 00 00  |8.@.............|
+000000a0  1c 00 00 00 00 00 00 00  01 00 00 00 00 00 00 00  |................|
+000000b0  01 00 00 00 05 00 00 00  00 00 00 00 00 00 00 00  |................|
+000000c0  00 00 40 00 00 00 00 00  00 00 40 00 00 00 00 00  |..@.......@.....|
+000000d0  e4 08 00 00 00 00 00 00  e4 08 00 00 00 00 00 00  |................|
+000000e0  00 10 00 00 00 00 00 00  01 00 00 00 06 00 00 00  |................|
+000000f0  e8 0d 00 00 00 00 00 00  e8 0d 60 00 00 00 00 00  |........`.@.....|
+00000100  e8 0d 60 00 00 00 00 00  48 02 00 00 00 00 00 00  |..`.....H.......|
+00000110  50 02 00 00 00 00 00 00  00 10 00 00 00 00 00 00  |P...............|
+00000120  02 00 00 00 06 00 00 00  08 0e 00 00 00 00 00 00  |................|
+00000130  08 0e 60 00 00 00 00 00  08 0e 60 00 00 00 00 00  |..`.......`.....|
+00000140  f0 01 00 00 00 00 00 00  f0 01 00 00 00 00 00 00  |................|
+00000150  08 00 00 00 00 00 00 00  04 00 00 00 04 00 00 00  |................|
+00000160  54 02 00 00 00 00 00 00  54 02 40 00 00 00 00 00  |T.......T.@.....|
+00000170  54 02 40 00 00 00 00 00  44 00 00 00 00 00 00 00  |T.@.....D.......|
+00000180  44 00 00 00 00 00 00 00  04 00 00 00 00 00 00 00  |D...............|
+00000190  51 e5 74 64 06 00 00 00  00 00 00 00 00 00 00 00  |Q.td............|
+000001a0  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+000001b0  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+000001c0  08 00 00 00 00 00 00 00  52 e5 74 64 04 00 00 00  |........R.td....|
+000001d0  e8 0d 00 00 00 00 00 00  e8 0d 60 00 00 00 00 00  |........`.@.....|
+    </div>
+
+    <header>
+        <div class="page-container">
+            <a href="/" class="site-wordmark">0xKAAAMMUUI</a>
+            <nav>
+                <a href="/" >0x0000 [.text] Home</a>
+                <a href="/writeups/" class="active">0x1000 [.data] Writeups</a>
+                <a href="/game-modding/" >0x2000 [.ro] Game Mods</a>
+                <a href="/notes/" >0x3000 [.bss] Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="page-container">
+        <div class="container writeup-grid">
+    <article class="post">
+        <header class="post-header" style="margin-bottom: 2rem;">
+            <h1 style="color: var(--text-bright);">Forgotten Snapshot</h1>
+            
+            <p style="color: var(--text-muted); font-size: 1.1rem; border-left: 2px solid var(--syn-address); padding-left: 1rem; margin-top: 1rem;">
+                Extracting hidden metadata from a recovered snapshot image.
+            </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h2 id="description">Description</h2>
+
+<p>We recovered this image from a damaged backup archive.</p>
+
+<p>Analysts believe the original owner attempted to conceal sensitive information before deletion.</p>
+
+<p>Some image data may have survived recovery.</p>
+
+<p><strong>Flag format:</strong> <code class="language-plaintext highlighter-rouge">SecLeaf{}</code></p>
+
+<h2 id="approach">Approach</h2>
+
+<p>The challenge gives us a recovered image file named <code class="language-plaintext highlighter-rouge">snapshot.jpg</code>. In forensics challenges involving images, one of the first steps is always to check the file’s strings and metadata. The description hints at “concealed sensitive information” that “survived recovery”, pointing strongly toward metadata or string extraction.</p>
+
+<ol>
+  <li><strong>Extracting Strings:</strong> We run the <code class="language-plaintext highlighter-rouge">strings</code> command on the image and pipe the output to <code class="language-plaintext highlighter-rouge">grep</code> looking for the standard flag format (<code class="language-plaintext highlighter-rouge">Sec</code>).
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌──<span class="o">(</span>himanshu@Kaaammui<span class="o">)</span>-[~/Desktop/ctf/SecLeaf/FORENSICS_Forgotten_snapshot]
+└─<span class="nv">$ </span>strings snapshot.jpg | <span class="nb">grep</span> <span class="s2">"Sec"</span>
+SecLeaf<span class="o">{</span>metadata_never_lies<span class="o">}</span>
+</code></pre></div>    </div>
+    <p>The flag pops out immediately.</p>
+  </li>
+  <li><strong>Verifying with Metadata:</strong> To see exactly where this was hidden, we can use the <code class="language-plaintext highlighter-rouge">file</code> command, which reads image metadata (like Exif or comments).
+    <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌──<span class="o">(</span>himanshu@Kaaammui<span class="o">)</span>-[~/Desktop/ctf/SecLeaf/FORENSICS_Forgotten_snapshot]
+└─<span class="nv">$ </span>file snapshot.jpg 
+snapshot.jpg: JPEG image data, JFIF standard 1.01, aspect ratio, density 1x1, segment length 16, comment: <span class="s2">"SecLeaf{metadata_never_lies}"</span>, progressive, precision 8, 528x500, components 3
+</code></pre></div>    </div>
+    <p>The output shows that the flag was stored directly in the JPEG’s <code class="language-plaintext highlighter-rouge">comment</code> segment.</p>
+  </li>
+</ol>
+
+<h3 id="output">Output</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>┌──<span class="o">(</span>himanshu@Kaaammui<span class="o">)</span>-[~/Desktop/ctf/SecLeaf/FORENSICS_Forgotten_snapshot]-<span class="o">(</span>23-05-2026 18:33:40<span class="o">)</span>
+└─<span class="nv">$ </span>strings snapshot.jpg | <span class="nb">grep</span> <span class="s2">"Sec"</span>
+SecLeaf<span class="o">{</span>metadata_never_lies<span class="o">}</span>
+
+┌──<span class="o">(</span>himanshu@Kaaammui<span class="o">)</span>-[~/Desktop/ctf/SecLeaf/FORENSICS_Forgotten_snapshot]-<span class="o">(</span>23-05-2026 18:33:54<span class="o">)</span>
+└─<span class="nv">$ </span>file snapshot.jpg 
+snapshot.jpg: JPEG image data, JFIF standard 1.01, aspect ratio, density 1x1, segment length 16, comment: <span class="s2">"SecLeaf{metadata_never_lies}"</span>, progressive, precision 8, 528x500, components 3
+</code></pre></div></div>
+
+<p><strong>Flag:</strong> <code class="language-plaintext highlighter-rouge">SecLeaf{metadata_never_lies}</code></p>
+
+        </div>
+    </article>
+    
+    <aside class="context-sidebar">
+        <div class="docked-window" style="margin-bottom: 2rem;">
+            <div class="window-header">
+                <span>Registers [Context]</span>
+            </div>
+            <div class="pwndbg-panel" style="padding: 1rem; border-radius: 0 0 4px 4px; border: 1px solid var(--border-color); border-top: none;">
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">RSI</span>
+                    <span class="pwndbg-str" style="color: var(--text-bright);">"Forgotten Sn..."</span>
+                </div>
+                
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">TYPE</span>
+                    <span class="pwndbg-addr">CTF</span>
+                </div>
+                
+                
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">RDI</span>
+                    <span class="pwndbg-instr">&lt;SecLeaf&gt;</span>
+                </div>
+                
+                
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">RDX</span>
+                    <span class="pwndbg-value">2026-05-28</span>
+                </div>
+                
+            </div>
+        </div>
+
+        <div class="docked-window">
+            <div class="window-header">
+                <span>Stack [TOC]</span>
+            </div>
+            <div class="pwndbg-panel" style="padding: 1rem; border-radius: 0 0 4px 4px; border: 1px solid var(--border-color); border-top: none;">
+                <ul id="toc-list" style="list-style-type: none; padding-left: 0; font-family: var(--font-mono); font-size: 0.85rem; margin: 0;">
+                    <!-- JS fills this -->
+                </ul>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<script>
+// Add Term Headers to code blocks
+document.addEventListener("DOMContentLoaded", function() {
+    const pres = document.querySelectorAll(".post-content pre");
+    pres.forEach(pre => {
+        // Only apply if it contains a code block and isn't already processed
+        if (!pre.querySelector("code")) return;
+        
+        let lang = "bash";
+        const code = pre.querySelector("code");
+        if (code && code.className) {
+            const match = code.className.match(/language-(\w+)/);
+            if (match) lang = match[1];
+        }
+        
+        const header = document.createElement("div");
+        header.className = "term-header";
+        
+        const titleSpan = document.createElement("span");
+        if (lang === "nasm" || lang === "asm") {
+            titleSpan.innerHTML = '<span style="color: var(--syn-danger);">gdb></span> disassemble';
+        } else if (lang === "python" || lang === "py") {
+            titleSpan.innerHTML = '<span style="color: var(--syn-string);">python3</span> exploit.py';
+        } else {
+            titleSpan.innerHTML = '<span style="color: var(--syn-danger);">himanshu@kali</span>:~$';
+        }
+        
+        const typeSpan = document.createElement("span");
+        typeSpan.innerText = lang;
+        typeSpan.style.marginRight = "1rem";
+        
+        const copyBtn = document.createElement("button");
+        copyBtn.innerText = "Copy";
+        copyBtn.className = "copy-btn";
+        copyBtn.onclick = function() {
+            const textToCopy = pre.innerText;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                copyBtn.innerText = "Copied!";
+                setTimeout(() => copyBtn.innerText = "Copy", 2000);
+            });
+        };
+        
+        const rightGroup = document.createElement("div");
+        rightGroup.style.display = "flex";
+        rightGroup.style.alignItems = "center";
+        rightGroup.appendChild(typeSpan);
+        rightGroup.appendChild(copyBtn);
+        
+        header.appendChild(titleSpan);
+        header.appendChild(rightGroup);
+        
+        pre.parentNode.insertBefore(header, pre);
+    });
+});
+</script>
+
+    </div>
+
+    <footer>
+        <div class="page-container">
+            <p>
+                <a href="https://github.com/HimanshuP601" target="_blank">0xGITHUB</a> | 
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">0xLINKEDIN</a> | 
+                <a href="https://medium.com/@HimanshuP601" target="_blank">0xMEDIUM</a> | 
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">0xPWN.COLLEGE</a> | 
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">0xHTB</a>
+            </p>
+            <p style="margin-top: 1rem; color: var(--border-color);">&copy; 2026 Himanshu Parate</p>
+        </div>
+    </footer>
+
+    <script>
+        console.log("%c" +
+            "  .o oOOOOOOOo                                            OOOo\n" +
+            "  Ob.OOOOOOOo  OOOo.      oOOo.                      .adOOOOOOO\n" +
+            "  OboO''''''''''''.OOo. .oOOOOOo.    OOOo.oOOOOOo..''''''''''OO\n" +
+            "  OOP.oOOOOOOOOOOO \"POOOOOOOOOOOo.   `\"OOOOOOOOOP,OOOOOOOOOOOB'\n" +
+            "  `O'OOOO'     `OOOOo\"OOOOOOOOOOO` .adOOOOOOOOO\"oOOO'    `OOOOo\n" +
+            "  .OOOO'            `OOOOOOOOOOOOOOOOOOOOOOOOOO'            `OO\n" +
+            "  OOOOO                 '\"OOOOOOOOOOOOOOOO\"`                oOO\n" +
+            " oOOOOOba.                .adOOOOOOOOOOba               .adOOOOo.\n" +
+            " oOOOOOOOOOOOOOba.    .adOOOOOOOOOO@^OOOOOOOba.     .adOOOOOOOOOOOO\n" +
+            " OOOOOOOOOOOOOOOOO.OOOOOOOOOOOOOO\"`  '\"OOOOOOOOOOOOO.OOOOOOOOOOOOOO\n" +
+            " \"OOOO\"       \"YOoOOOOMOIONODOO\"`  .   '\"OOROAOPOEOOOoOY\"     \"OOO\"\n" +
+            "    Y           'OOOOOOOOOOOOOO: .oOOo. :OOOOOOOOOOO?'         :`\n" +
+            "    :            .oO%OOOOOOOOOOo.OOOOOO.oOOOOOOOOOOOO?         .\n" +
+            "    .            oOOP\"%OOOOOOOOoOOOOOOO?oOOOOO?OOOO\"OOo\n" +
+            "                 '%o  OOOO\"%OOOO%\"%OOOOO\"OOOOOO\"OOO':\n" +
+            "                      `$\"  `OOOO' `O\"Y ' `OOOO'  o             .\n" +
+            "    .                  .     OP\"          : o     . \n" +
+            "HTB{w3lc0m3_t0_my_m3m0ry}",
+            "color: red; font-family: monospace; font-size: 14px; font-weight: bold;"
+        );
+    </script>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+    </script>
+</body>
+</html>
