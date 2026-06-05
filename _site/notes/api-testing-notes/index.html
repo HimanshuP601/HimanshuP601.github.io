@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PortSwigger - API Testing Notes</title>
+    <meta name="description" content="A digital garden for System Exploitation & Reverse Engineering.">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="PortSwigger - API Testing Notes" />
+    <meta property="og:description" content="System Exploitation and Reverse Engineering Portfolio" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="http://localhost:4000/assets/img/re_background.png" />
+    
+    <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+    <!-- Subtle Hexdump Background to mimic RE tool -->
+    <div class="bg-hexdump" aria-hidden="true">
+00000000  7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00  |.ELF............|
+00000010  03 00 3e 00 01 00 00 00  60 10 40 00 00 00 00 00  |..>.....`.@.....|
+00000020  40 00 00 00 00 00 00 00  48 30 00 00 00 00 00 00  |@.......H0......|
+00000030  00 00 00 00 40 00 38 00  09 00 40 00 1a 00 19 00  |....@.8...@.....|
+00000040  06 00 00 00 04 00 00 00  40 00 00 00 00 00 00 00  |........@.......|
+00000050  40 00 40 00 00 00 00 00  40 00 40 00 00 00 00 00  |@.@.....@.@.....|
+00000060  f8 01 00 00 00 00 00 00  f8 01 00 00 00 00 00 00  |................|
+00000070  08 00 00 00 00 00 00 00  03 00 00 00 04 00 00 00  |................|
+00000080  38 02 00 00 00 00 00 00  38 02 40 00 00 00 00 00  |8.......8.@.....|
+00000090  38 02 40 00 00 00 00 00  1c 00 00 00 00 00 00 00  |8.@.............|
+000000a0  1c 00 00 00 00 00 00 00  01 00 00 00 00 00 00 00  |................|
+000000b0  01 00 00 00 05 00 00 00  00 00 00 00 00 00 00 00  |................|
+000000c0  00 00 40 00 00 00 00 00  00 00 40 00 00 00 00 00  |..@.......@.....|
+000000d0  e4 08 00 00 00 00 00 00  e4 08 00 00 00 00 00 00  |................|
+000000e0  00 10 00 00 00 00 00 00  01 00 00 00 06 00 00 00  |................|
+000000f0  e8 0d 00 00 00 00 00 00  e8 0d 60 00 00 00 00 00  |........`.@.....|
+00000100  e8 0d 60 00 00 00 00 00  48 02 00 00 00 00 00 00  |..`.....H.......|
+00000110  50 02 00 00 00 00 00 00  00 10 00 00 00 00 00 00  |P...............|
+00000120  02 00 00 00 06 00 00 00  08 0e 00 00 00 00 00 00  |................|
+00000130  08 0e 60 00 00 00 00 00  08 0e 60 00 00 00 00 00  |..`.......`.....|
+00000140  f0 01 00 00 00 00 00 00  f0 01 00 00 00 00 00 00  |................|
+00000150  08 00 00 00 00 00 00 00  04 00 00 00 04 00 00 00  |................|
+00000160  54 02 00 00 00 00 00 00  54 02 40 00 00 00 00 00  |T.......T.@.....|
+00000170  54 02 40 00 00 00 00 00  44 00 00 00 00 00 00 00  |T.@.....D.......|
+00000180  44 00 00 00 00 00 00 00  04 00 00 00 00 00 00 00  |D...............|
+00000190  51 e5 74 64 06 00 00 00  00 00 00 00 00 00 00 00  |Q.td............|
+000001a0  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+000001b0  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+000001c0  08 00 00 00 00 00 00 00  52 e5 74 64 04 00 00 00  |........R.td....|
+000001d0  e8 0d 00 00 00 00 00 00  e8 0d 60 00 00 00 00 00  |........`.@.....|
+    </div>
+
+    <header>
+        <div class="page-container">
+            <a href="/" class="site-wordmark">0xKAAAMMUUI</a>
+            <nav>
+                <a href="/" >0x0000 [.text] Home</a>
+                <a href="/writeups/" >0x1000 [.data] Writeups</a>
+                <a href="/game-modding/" >0x2000 [.ro] Game Mods</a>
+                <a href="/notes/" class="active">0x3000 [.bss] Notes</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="page-container">
+        <div class="container writeup-grid">
+    <article class="post">
+        <header class="post-header" style="margin-bottom: 2rem;">
+            <h1 style="color: var(--text-bright);">PortSwigger - API Testing Notes</h1>
+            
+            <p style="color: var(--text-muted); font-size: 1.1rem; border-left: 2px solid var(--syn-address); padding-left: 1rem; margin-top: 1rem;">
+                Notes on API testing, finding vulnerabilities, mass assignment, server-side parameter pollution.
+            </p>
+            
+        </header>
+
+        <div class="post-content" id="post-content">
+            <h1 id="portswigger--api-testing-notes">PortSwigger — API Testing Notes</h1>
+
+<blockquote>
+  <p><strong>Goal:</strong> Find vulnerabilities in APIs that the website frontend doesn’t fully use.
+Think of an API as a waiter — you send requests, it fetches/updates data. If the waiter doesn’t check who you are or what you’re allowed to order, that’s a bug.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="0-what-even-is-api-testing">0. What Even Is API Testing?</h2>
+
+<p>An API (Application Programming Interface) lets software talk to each other.
+When you click “Update Email” on a website, behind the scenes it’s doing something like:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>PATCH /api/user/wiener
+{ "email": "new@email.com" }
+</code></pre></div></div>
+
+<p><strong>API testing = intercepting and abusing those requests.</strong></p>
+
+<hr />
+
+<h2 id="1-reconnaissance--find-the-attack-surface-first">1. Reconnaissance — Find the Attack Surface First</h2>
+
+<p>Before you hack anything, you need to know what endpoints exist.</p>
+
+<h3 id="11-find-api-documentation">1.1 Find API Documentation</h3>
+
+<p>Developers write docs so other devs can use the API. If exposed, it’s goldmine for attackers.</p>
+
+<p><strong>Common doc paths to check:</strong></p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/api
+/api/docs
+/api/swagger/v1
+/swagger/index.html
+/openapi.json
+/api/redoc
+/v1/api-docs
+</code></pre></div></div>
+
+<p><strong>Example:</strong>
+You find <code class="language-plaintext highlighter-rouge">/api/swagger/v1/users/123</code> — now also try:</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">/api/swagger/v1</code></li>
+  <li><code class="language-plaintext highlighter-rouge">/api/swagger</code></li>
+  <li><code class="language-plaintext highlighter-rouge">/api</code></li>
+</ul>
+
+<blockquote>
+  <p><strong>Burp Tip:</strong> Use Burp Scanner to crawl OpenAPI/Swagger docs automatically. Or use the <strong>OpenAPI Parser BApp</strong>.</p>
+</blockquote>
+
+<hr />
+
+<h3 id="12-find-hidden-endpoints-manually">1.2 Find Hidden Endpoints Manually</h3>
+
+<p>Even without docs, you can find endpoints by:</p>
+
+<ul>
+  <li>Watching the <strong>Proxy &gt; HTTP History</strong> tab in Burp while using the app normally</li>
+  <li>Looking for patterns like <code class="language-plaintext highlighter-rouge">/api/</code>, <code class="language-plaintext highlighter-rouge">/v1/</code>, <code class="language-plaintext highlighter-rouge">/v2/</code> in URLs</li>
+  <li><strong>Reading JavaScript files</strong> — they often contain API calls the UI never shows you</li>
+</ul>
+
+<p><strong>Example JS snippet you might find:</strong></p>
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nf">fetch</span><span class="p">(</span><span class="dl">'</span><span class="s1">/api/admin/users/delete</span><span class="dl">'</span><span class="p">,</span> <span class="p">{</span> <span class="na">method</span><span class="p">:</span> <span class="dl">'</span><span class="s1">POST</span><span class="dl">'</span> <span class="p">})</span>
+</code></pre></div></div>
+<p>→ That <code class="language-plaintext highlighter-rouge">delete</code> endpoint might not be linked anywhere in the UI but still works!</p>
+
+<hr />
+
+<h3 id="13-fuzz-for-hidden-endpoints">1.3 Fuzz for Hidden Endpoints</h3>
+
+<p>Once you find one endpoint, fuzz similar paths using Burp Intruder.</p>
+
+<p><strong>Example:</strong>
+You know <code class="language-plaintext highlighter-rouge">/api/user/update</code> exists. Fuzz the last part:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>/api/user/§update§
+</code></pre></div></div>
+<p>Wordlist ideas: <code class="language-plaintext highlighter-rouge">delete</code>, <code class="language-plaintext highlighter-rouge">add</code>, <code class="language-plaintext highlighter-rouge">admin</code>, <code class="language-plaintext highlighter-rouge">list</code>, <code class="language-plaintext highlighter-rouge">export</code>, <code class="language-plaintext highlighter-rouge">reset</code>, <code class="language-plaintext highlighter-rouge">debug</code></p>
+
+<hr />
+
+<h2 id="2-interact-with-endpoints--find-what-they-accept">2. Interact with Endpoints — Find What They Accept</h2>
+
+<p>After finding endpoints, figure out how they work:</p>
+
+<h3 id="21-test-all-http-methods">2.1 Test All HTTP Methods</h3>
+
+<p>APIs often have the same endpoint doing different things per method:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Typical Use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>GET</td>
+      <td>Read data</td>
+    </tr>
+    <tr>
+      <td>POST</td>
+      <td>Create data</td>
+    </tr>
+    <tr>
+      <td>PUT</td>
+      <td>Replace data</td>
+    </tr>
+    <tr>
+      <td>PATCH</td>
+      <td>Update data</td>
+    </tr>
+    <tr>
+      <td>DELETE</td>
+      <td>Delete data</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Try sending OPTIONS to see what methods are allowed:</strong></p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>OPTIONS /api/user/wiener HTTP/1.1
+</code></pre></div></div>
+<p>Response might say: <code class="language-plaintext highlighter-rouge">Allow: GET, POST, DELETE</code></p>
+
+<blockquote>
+  <p>If DELETE is allowed but the frontend never shows a delete button — test it!</p>
+</blockquote>
+
+<hr />
+
+<h3 id="22-switch-content-types">2.2 Switch Content Types</h3>
+
+<p>If the API only accepts JSON, try XML or form data. Sometimes different parsers have different bugs.</p>
+
+<div class="language-http highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err"># Original
+Content-Type: application/json
+{ "username": "wiener" }
+
+# Try switching to
+Content-Type: application/x-www-form-urlencoded
+username=wiener
+</span></code></pre></div></div>
+
+<hr />
+
+<h2 id="3-finding-hidden-parameters">3. Finding Hidden Parameters</h2>
+
+<p>This is where it gets juicy.</p>
+
+<h3 id="31-compare-get-vs-post-responses">3.1 Compare GET vs POST Responses</h3>
+
+<p><strong>Classic example from PortSwigger labs:</strong></p>
+
+<p>You send <code class="language-plaintext highlighter-rouge">GET /api/checkout</code> and get back:</p>
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"chosen_discount"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"percentage"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"chosen_products"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Jacket"</span><span class="p">,</span><span class="w"> </span><span class="nl">"price"</span><span class="p">:</span><span class="w"> </span><span class="mi">133700</span><span class="w"> </span><span class="p">}]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p>But when you <code class="language-plaintext highlighter-rouge">POST /api/checkout</code> to actually buy, you only send:</p>
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"chosen_products"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nl">"product_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1"</span><span class="p">,</span><span class="w"> </span><span class="nl">"quantity"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">}]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p><strong>Spot the difference?</strong> <code class="language-plaintext highlighter-rouge">chosen_discount</code> is in the GET response but missing from the POST.</p>
+
+<p>→ Try adding it to your POST request!</p>
+
+<hr />
+
+<h3 id="32-fuzz-for-hidden-parameters-with-burp">3.2 Fuzz for Hidden Parameters with Burp</h3>
+
+<p>Use <strong>Intruder</strong> or the <strong>Param Miner BApp</strong> to guess hidden parameter names.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>POST /api/user/update
+{ "§hidden_param§": "test" }
+</code></pre></div></div>
+
+<p>Common hidden params to look for: <code class="language-plaintext highlighter-rouge">isAdmin</code>, <code class="language-plaintext highlighter-rouge">role</code>, <code class="language-plaintext highlighter-rouge">debug</code>, <code class="language-plaintext highlighter-rouge">internal</code>, <code class="language-plaintext highlighter-rouge">discount</code>, <code class="language-plaintext highlighter-rouge">price</code>, <code class="language-plaintext highlighter-rouge">balance</code></p>
+
+<hr />
+
+<h2 id="4-mass-assignment-vulnerability">4. Mass Assignment Vulnerability</h2>
+
+<p><strong>What it is:</strong> The server blindly maps ALL user input to internal object fields — including ones that shouldn’t be user-controlled.</p>
+
+<p><strong>Simple analogy:</strong> You fill out a form with only Name and Email. But the server’s “User” object also has <code class="language-plaintext highlighter-rouge">isAdmin</code>. If the server binds everything you send to the object without filtering, you can just add <code class="language-plaintext highlighter-rouge">isAdmin: true</code> to your request.</p>
+
+<p><strong>How to find it:</strong></p>
+<ol>
+  <li>Do a GET request — see what fields the response contains</li>
+  <li>Do a POST/PATCH with those extra fields added</li>
+</ol>
+
+<p><strong>Example:</strong></p>
+
+<p>Step 1 — GET response reveals extra fields:</p>
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">GET</span><span class="w"> </span><span class="err">/api/users/</span><span class="mi">123</span><span class="w">
+</span><span class="p">{</span><span class="w">
+  </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">123</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"user@example.com"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"isAdmin"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Step 2 — PATCH to update email, but add <code class="language-plaintext highlighter-rouge">isAdmin</code>:</p>
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">PATCH</span><span class="w"> </span><span class="err">/api/users/</span><span class="mi">123</span><span class="w">
+</span><span class="p">{</span><span class="w">
+  </span><span class="nl">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"new@email.com"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"isAdmin"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Step 3 — If the server accepts this → you’re now admin.</p>
+
+<blockquote>
+  <p><strong>Mitigation (for devs):</strong> Use an allowlist of fields that users can modify. Never auto-bind all request fields.</p>
+</blockquote>
+
+<hr />
+
+<h2 id="5-server-side-parameter-pollution-sspp">5. Server-Side Parameter Pollution (SSPP)</h2>
+
+<p><strong>What it is:</strong> The website takes your input and uses it in an internal API request (one you can’t see directly). If it doesn’t sanitize your input, you can inject extra parameters into that internal request.</p>
+
+<p><strong>Think of it like:</strong> You shout an order at a middleman who relays it to the kitchen. If the middleman doesn’t filter what you say, you can sneak extra instructions.</p>
+
+<h3 id="51-query-string-injection">5.1 Query String Injection</h3>
+
+<p><strong>Target URL:</strong> <code class="language-plaintext highlighter-rouge">https://site.com/login?username=carlos</code></p>
+
+<p>Internally, the server makes: <code class="language-plaintext highlighter-rouge">GET /api/private?username=carlos&amp;publicProfile=true</code></p>
+
+<p><strong>Your attack:</strong> Add <code class="language-plaintext highlighter-rouge">&amp;admin=true</code> to your username:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>username=carlos%26admin%3Dtrue
+</code></pre></div></div>
+<p>(URL-encoded <code class="language-plaintext highlighter-rouge">&amp;admin=true</code>)</p>
+
+<p>Internally becomes: <code class="language-plaintext highlighter-rouge">GET /api/private?username=carlos&amp;admin=true&amp;publicProfile=true</code></p>
+
+<hr />
+
+<h3 id="52-truncate-the-internal-request-with-">5.2 Truncate the Internal Request with <code class="language-plaintext highlighter-rouge">#</code></h3>
+
+<p>Use <code class="language-plaintext highlighter-rouge">#</code> (URL-encoded as <code class="language-plaintext highlighter-rouge">%23</code>) to truncate the internal query string:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>username=carlos%23foo
+</code></pre></div></div>
+
+<p>Internally: <code class="language-plaintext highlighter-rouge">GET /api/private?username=carlos#foo&amp;publicProfile=true</code></p>
+
+<p>Everything after <code class="language-plaintext highlighter-rouge">#</code> gets dropped — the <code class="language-plaintext highlighter-rouge">publicProfile=true</code> check is bypassed!</p>
+
+<p><strong>How to detect SSPP — inject test characters and watch behavior:</strong></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Inject</th>
+      <th>Watch For</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">%26foo%3Dbar</code> (<code class="language-plaintext highlighter-rouge">&amp;foo=bar</code>)</td>
+      <td>Parameter shows up in response or different behavior</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">%23foo</code> (<code class="language-plaintext highlighter-rouge">#foo</code>)</td>
+      <td>Request truncated — different response</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">%3Dfoo</code> (<code class="language-plaintext highlighter-rouge">=foo</code>)</td>
+      <td>Parameter value changed</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">foo%3Dbar</code> via path</td>
+      <td>Reflected in an error or response</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="6-quick-attack-checklist">6. Quick Attack Checklist</h2>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[ ] Find API docs (swagger, /api, /openapi.json)
+[ ] Browse app in Burp, watch HTTP History for /api/ calls
+[ ] Read JavaScript files for hidden endpoint URLs
+[ ] Test all HTTP methods (GET, POST, PUT, PATCH, DELETE, OPTIONS)
+[ ] Switch content types (JSON → XML → form-data)
+[ ] Compare GET and POST bodies — look for extra fields
+[ ] Add fields from GET response into POST/PATCH requests (mass assignment)
+[ ] Fuzz endpoint paths (/api/user/update → /api/user/delete)
+[ ] Fuzz parameter names (Param Miner BApp)
+[ ] Inject &amp;, =, # into string params (SSPP)
+[ ] Try accessing other users' resources (IDOR / BOLA)
+[ ] Try privilege escalation via isAdmin, role parameters
+</code></pre></div></div>
+
+<hr />
+
+<h2 id="7-owasp-api-top-10-quick-reference">7. OWASP API Top 10 (Quick Reference)</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Vulnerability</th>
+      <th>What It Means</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>Broken Object Level Auth (BOLA)</td>
+      <td>Access other users’ data via object IDs</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Broken Authentication</td>
+      <td>Weak/missing auth on endpoints</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Broken Object Property Level Auth</td>
+      <td>Read/write fields you shouldn’t (mass assignment)</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Unrestricted Resource Consumption</td>
+      <td>No rate limiting → DoS or cost abuse</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Broken Function Level Auth</td>
+      <td>Regular user accessing admin endpoints</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>Unrestricted Access to Sensitive Business Flows</td>
+      <td>Abuse of business logic (e.g. fake discounts)</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>SSRF</td>
+      <td>Server makes requests to internal services</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>Security Misconfiguration</td>
+      <td>Debug mode on, verbose errors, etc.</td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td>Improper Inventory Management</td>
+      <td>Old/forgotten API versions still running</td>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td>Unsafe Consumption of APIs</td>
+      <td>Trusting 3rd-party API responses blindly</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="8-key-burp-tools-for-api-testing">8. Key Burp Tools for API Testing</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th>
+      <th>Use Case</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Proxy &gt; HTTP History</strong></td>
+      <td>Watch all API traffic while browsing</td>
+    </tr>
+    <tr>
+      <td><strong>Repeater</strong></td>
+      <td>Manually tweak and resend requests</td>
+    </tr>
+    <tr>
+      <td><strong>Intruder</strong></td>
+      <td>Fuzz endpoints and parameters</td>
+    </tr>
+    <tr>
+      <td><strong>Scanner</strong></td>
+      <td>Crawl and audit Swagger/OpenAPI docs</td>
+    </tr>
+    <tr>
+      <td><strong>Param Miner (BApp)</strong></td>
+      <td>Find hidden/undocumented parameters</td>
+    </tr>
+    <tr>
+      <td><strong>OpenAPI Parser (BApp)</strong></td>
+      <td>Parse and test API specs automatically</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr />
+
+<h2 id="9-real-lab-walkthroughs-summary">9. Real Lab Walkthroughs (Summary)</h2>
+
+<h3 id="lab-exploiting-api-via-documentation">Lab: Exploiting API via Documentation</h3>
+<ol>
+  <li>Log in, update email → Burp catches <code class="language-plaintext highlighter-rouge">PATCH /api/user/wiener</code></li>
+  <li>Browse to <code class="language-plaintext highlighter-rouge">/api</code> → Swagger UI shows all endpoints</li>
+  <li>Find <code class="language-plaintext highlighter-rouge">DELETE /api/user/{username}</code> in docs</li>
+  <li>Send <code class="language-plaintext highlighter-rouge">DELETE /api/user/carlos</code> → Done</li>
+</ol>
+
+<h3 id="lab-mass-assignment">Lab: Mass Assignment</h3>
+<ol>
+  <li>Add jacket to cart → POST <code class="language-plaintext highlighter-rouge">/api/checkout</code></li>
+  <li>GET <code class="language-plaintext highlighter-rouge">/api/checkout</code> response has <code class="language-plaintext highlighter-rouge">"chosen_discount": {"percentage": 0}</code></li>
+  <li>Add that field to the POST body with <code class="language-plaintext highlighter-rouge">"percentage": 100</code></li>
+  <li>Buy the jacket for $0</li>
+</ol>
+
+<h3 id="lab-sspp-in-query-string">Lab: SSPP in Query String</h3>
+<ol>
+  <li>Forget password for <code class="language-plaintext highlighter-rouge">administrator</code></li>
+  <li>Fuzz the <code class="language-plaintext highlighter-rouge">username</code> field with <code class="language-plaintext highlighter-rouge">%26admin%3Dtrue</code>, <code class="language-plaintext highlighter-rouge">%23foo</code>, etc.</li>
+  <li>Observe changes in response messages — detect truncation or parameter injection</li>
+  <li>Exploit to change reset token behavior</li>
+</ol>
+
+<hr />
+
+<h2 id="10-tips--tricks">10. Tips &amp; Tricks</h2>
+
+<ul>
+  <li><strong>Always check older API versions:</strong> <code class="language-plaintext highlighter-rouge">/v1/</code>, <code class="language-plaintext highlighter-rouge">/v2/</code> — older ones often have fewer protections</li>
+  <li><strong>Error messages are gold:</strong> <code class="language-plaintext highlighter-rouge">400 Bad Request: field 'isAdmin' is read-only</code> — you just found a hidden field!</li>
+  <li><strong>Read JS files:</strong> Use <code class="language-plaintext highlighter-rouge">Ctrl+F</code> in browser DevTools to search for <code class="language-plaintext highlighter-rouge">/api/</code> in JS</li>
+  <li><strong>Content-type matters:</strong> Try <code class="language-plaintext highlighter-rouge">application/xml</code> even if the API “only accepts JSON” — parsers differ</li>
+  <li><strong>BOLA = IDOR for APIs:</strong> If you see <code class="language-plaintext highlighter-rouge">/api/orders/1234</code>, try <code class="language-plaintext highlighter-rouge">/api/orders/1235</code></li>
+</ul>
+
+        </div>
+    </article>
+    
+    <aside class="context-sidebar">
+        <div class="docked-window" style="margin-bottom: 2rem;">
+            <div class="window-header">
+                <span>Registers [Context]</span>
+            </div>
+            <div class="pwndbg-panel" style="padding: 1rem; border-radius: 0 0 4px 4px; border: 1px solid var(--border-color); border-top: none;">
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">RSI</span>
+                    <span class="pwndbg-str" style="color: var(--text-bright);">"PortSwigger ..."</span>
+                </div>
+                
+                
+                
+                <div class="pwndbg-row" style="margin-bottom: 0.5rem;">
+                    <span class="pwndbg-label" style="width: 50px;">RDX</span>
+                    <span class="pwndbg-value">2026-06-05</span>
+                </div>
+                
+            </div>
+        </div>
+
+        <div class="docked-window">
+            <div class="window-header">
+                <span>Stack [TOC]</span>
+            </div>
+            <div class="pwndbg-panel" style="padding: 1rem; border-radius: 0 0 4px 4px; border: 1px solid var(--border-color); border-top: none;">
+                <ul id="toc-list" style="list-style-type: none; padding-left: 0; font-family: var(--font-mono); font-size: 0.85rem; margin: 0;">
+                    <!-- JS fills this -->
+                </ul>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<script>
+// Add Term Headers to code blocks
+document.addEventListener("DOMContentLoaded", function() {
+    const pres = document.querySelectorAll(".post-content pre");
+    pres.forEach(pre => {
+        // Only apply if it contains a code block and isn't already processed
+        if (!pre.querySelector("code")) return;
+        
+        let lang = "bash";
+        const code = pre.querySelector("code");
+        if (code && code.className) {
+            const match = code.className.match(/language-(\w+)/);
+            if (match) lang = match[1];
+        }
+        
+        const header = document.createElement("div");
+        header.className = "term-header";
+        
+        const titleSpan = document.createElement("span");
+        if (lang === "nasm" || lang === "asm") {
+            titleSpan.innerHTML = '<span style="color: var(--syn-danger);">gdb></span> disassemble';
+        } else if (lang === "python" || lang === "py") {
+            titleSpan.innerHTML = '<span style="color: var(--syn-string);">python3</span> exploit.py';
+        } else {
+            titleSpan.innerHTML = '<span style="color: var(--syn-danger);">himanshu@kali</span>:~$';
+        }
+        
+        const typeSpan = document.createElement("span");
+        typeSpan.innerText = lang;
+        typeSpan.style.marginRight = "1rem";
+        
+        const copyBtn = document.createElement("button");
+        copyBtn.innerText = "Copy";
+        copyBtn.className = "copy-btn";
+        copyBtn.onclick = function() {
+            const textToCopy = pre.innerText;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                copyBtn.innerText = "Copied!";
+                setTimeout(() => copyBtn.innerText = "Copy", 2000);
+            });
+        };
+        
+        const rightGroup = document.createElement("div");
+        rightGroup.style.display = "flex";
+        rightGroup.style.alignItems = "center";
+        rightGroup.appendChild(typeSpan);
+        rightGroup.appendChild(copyBtn);
+        
+        header.appendChild(titleSpan);
+        header.appendChild(rightGroup);
+        
+        pre.parentNode.insertBefore(header, pre);
+    });
+});
+</script>
+
+    </div>
+
+    <footer>
+        <div class="page-container">
+            <p>
+                <a href="https://github.com/HimanshuP601" target="_blank">0xGITHUB</a> | 
+                <a href="https://www.linkedin.com/in/himanshuparate/" target="_blank">0xLINKEDIN</a> | 
+                <a href="https://medium.com/@HimanshuP601" target="_blank">0xMEDIUM</a> | 
+                <a href="https://pwn.college/hacker/HimanshuP601" target="_blank">0xPWN.COLLEGE</a> | 
+                <a href="https://app.hackthebox.com/users/2410266" target="_blank">0xHTB</a>
+            </p>
+            <p style="margin-top: 1rem; color: var(--border-color);">&copy; 2026 Himanshu Parate</p>
+        </div>
+    </footer>
+
+    <script>
+        console.log("%c" +
+            "  .o oOOOOOOOo                                            OOOo\n" +
+            "  Ob.OOOOOOOo  OOOo.      oOOo.                      .adOOOOOOO\n" +
+            "  OboO''''''''''''.OOo. .oOOOOOo.    OOOo.oOOOOOo..''''''''''OO\n" +
+            "  OOP.oOOOOOOOOOOO \"POOOOOOOOOOOo.   `\"OOOOOOOOOP,OOOOOOOOOOOB'\n" +
+            "  `O'OOOO'     `OOOOo\"OOOOOOOOOOO` .adOOOOOOOOO\"oOOO'    `OOOOo\n" +
+            "  .OOOO'            `OOOOOOOOOOOOOOOOOOOOOOOOOO'            `OO\n" +
+            "  OOOOO                 '\"OOOOOOOOOOOOOOOO\"`                oOO\n" +
+            " oOOOOOba.                .adOOOOOOOOOOba               .adOOOOo.\n" +
+            " oOOOOOOOOOOOOOba.    .adOOOOOOOOOO@^OOOOOOOba.     .adOOOOOOOOOOOO\n" +
+            " OOOOOOOOOOOOOOOOO.OOOOOOOOOOOOOO\"`  '\"OOOOOOOOOOOOO.OOOOOOOOOOOOOO\n" +
+            " \"OOOO\"       \"YOoOOOOMOIONODOO\"`  .   '\"OOROAOPOEOOOoOY\"     \"OOO\"\n" +
+            "    Y           'OOOOOOOOOOOOOO: .oOOo. :OOOOOOOOOOO?'         :`\n" +
+            "    :            .oO%OOOOOOOOOOo.OOOOOO.oOOOOOOOOOOOO?         .\n" +
+            "    .            oOOP\"%OOOOOOOOoOOOOOOO?oOOOOO?OOOO\"OOo\n" +
+            "                 '%o  OOOO\"%OOOO%\"%OOOOO\"OOOOOO\"OOO':\n" +
+            "                      `$\"  `OOOO' `O\"Y ' `OOOO'  o             .\n" +
+            "    .                  .     OP\"          : o     . \n" +
+            "HTB{w3lc0m3_t0_my_m3m0ry}",
+            "color: red; font-family: monospace; font-size: 14px; font-weight: bold;"
+        );
+    </script>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+    </script>
+</body>
+</html>
